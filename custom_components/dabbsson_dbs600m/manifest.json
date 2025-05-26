@@ -1,0 +1,17 @@
+{
+    "domain": "dabbsson_dbs600m",
+    "name": "Dabbsson DBS600M",
+    "version": "1.0.0",
+    "config_flow": true,
+    "documentation": "https://github.com/kleimj1/dabbsson_dbs600m",
+    "requirements": [
+        "tinytuya>=1.3.7"
+    ],
+    "dependencies": [],
+    "codeowners": [
+        "@kleimj1"
+    ],
+    "description": "Integration für den Dabbsson DBS600M Wechselrichter (lokal via WLAN, Tuya-Protokoll)",
+    "issue_tracker": "https://github.com/kleimj1/dabbsson_dbs600m/issues",
+    "iot_class": "local_polling"
+}
