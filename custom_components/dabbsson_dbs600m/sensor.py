@@ -1,42 +1,95 @@
+import logging
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.const import (
-    PERCENTAGE,
-    POWER_WATT,
-    VOLT,
-    TEMP_CELSIUS,
-    ELECTRIC_CURRENT_AMPERE
-)
-from .const import DOMAIN, DEFAULT_NAME
+from homeassistant.const import CONF_NAME
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.components import mqtt
 
-SENSOR_TYPES = {
-    "101": ("pv_leistung", "PV-Leistung", POWER_WATT, "power"),
-    "103": ("pv_spannung", "PV-Spannung", VOLT, "voltage"),
-    "104": ("inverter_temp", "Inverter-Temp", TEMP_CELSIUS, "temperature"),
-    "109": ("ac_ausgang_leistung", "AC Ausgang Leistung", POWER_WATT, "power"),
-    "111": ("pv_strom", "PV-Strom", ELECTRIC_CURRENT_AMPERE, "current"),
-    "120": ("batterie_soc", "Batterie SoC", PERCENTAGE, "battery"),
-}
+from .const import CONF_MQTT_TOPIC
+from .dps_metadata import DPS_METADATA
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    device = hass.data[DOMAIN][config_entry.entry_id]
-    entities = []
+_LOGGER = logging.getLogger(__name__)
 
-    for dps_id, (key, name, unit, device_class) in SENSOR_TYPES.items():
-        if dps_id in device.status:
-            entities.append(DabbssonSensor(device, dps_id, key, name, unit, device_class))
+async def async_setup_platform(
+    hass: HomeAssistant,
+    config: ConfigType,
+    async_add_entities: AddEntitiesCallback,
+    discovery_info: DiscoveryInfoType | None = None,
+):
+    if discovery_info is None:
+        return
 
-    async_add_entities(entities)
+    name = discovery_info[CONF_NAME]
+    topic_base = discovery_info[CONF_MQTT_TOPIC]
 
+    sensors = []
+    sensors.append(DabbssonSensor(name, topic_base, "101", DPS_METADATA["101"]))
+    sensors.append(DabbssonSensor(name, topic_base, "103", DPS_METADATA["103"]))
+    sensors.append(DabbssonSensor(name, topic_base, "111", DPS_METADATA["111"]))
+    sensors.append(DabbssonSensor(name, topic_base, "104", DPS_METADATA["104"]))
+    sensors.append(DabbssonSensor(name, topic_base, "120", DPS_METADATA["120"]))
+    sensors.append(DabbssonSensor(name, topic_base, "109", DPS_METADATA["109"]))
+
+    async_add_entities(sensors)
 
 class DabbssonSensor(SensorEntity):
-    def __init__(self, device, dps_id, key, name, unit, device_class):
-        self._device = device
+    def __init__(self, device_name: str, topic_base: str, dps_id: str, meta: dict):
+        self._device_name = device_name
+        self._topic = f"{topic_base}/{dps_id}"
         self._dps_id = dps_id
-        self._attr_name = f"{DEFAULT_NAME} {name}"
-        self._attr_unique_id = f"{device.id}_{key}"
-        self._attr_native_unit_of_measurement = unit
-        self._attr_device_class = device_class
+        self._name = f"{device_name} - {meta['name']}"
+        self._type = meta["type"]
+        self._unit = meta.get("unit") or _unit_for_type(self._type)
+        self._state = None
 
     @property
-    def native_value(self):
-        return self._device.status.get(self._dps_id)
+    def name(self):
+        return self._name
+
+    @property
+    def unique_id(self):
+        return f"dabbsson_{self._device_name}_{self._dps_id}"
+
+    @property
+    def state(self):
+        return self._state
+
+    @property
+    def device_class(self):
+        return None  # könnte bei Bedarf gesetzt werden
+
+    @property
+    def unit_of_measurement(self):
+        return self._unit
+
+    async def async_added_to_hass(self):
+        await mqtt.async_subscribe(self.hass, self._topic, self.message_received, 1)
+
+    @callback
+    def message_received(self, msg):
+        payload = msg.payload
+        _LOGGER.debug(f"MQTT message for {self._name}: {payload}")
+        try:
+            self._state = _cast(payload, self._type)
+        except Exception as e:
+            _LOGGER.warning(f"Fehler beim Konvertieren von {payload} für {self._name}: {e}")
+        self.async_write_ha_state()
+
+def _cast(value, expected_type):
+    if expected_type == "int":
+        return int(value)
+    elif expected_type == "bool":
+        return value.lower() == "true"
+    elif expected_type == "str":
+        return str(value)
+    return value
+
+def _unit_for_type(value_type: str):
+    if value_type == "int":
+        return "W"
+    elif value_type == "bool":
+        return None
+    elif value_type == "str":
+        return None
+    return None
