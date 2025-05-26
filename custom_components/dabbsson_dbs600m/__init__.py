@@ -10,7 +10,7 @@ from homeassistant.helpers.discovery import async_load_platform
 
 from .const import DOMAIN, CONF_DEVICES, CONF_MQTT_TOPIC
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__ + ".dabbsson_dbs600m")
 
 CONFIG_SCHEMA = vol.Schema(
     {
