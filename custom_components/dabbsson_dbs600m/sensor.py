@@ -24,12 +24,8 @@ async def async_setup_platform(
     topic_base = discovery_info[CONF_MQTT_TOPIC]
 
     sensors = []
-    sensors.append(DabbssonSensor(name, topic_base, "101", DPS_METADATA["101"]))
-    sensors.append(DabbssonSensor(name, topic_base, "103", DPS_METADATA["103"]))
-    sensors.append(DabbssonSensor(name, topic_base, "111", DPS_METADATA["111"]))
-    sensors.append(DabbssonSensor(name, topic_base, "104", DPS_METADATA["104"]))
-    sensors.append(DabbssonSensor(name, topic_base, "120", DPS_METADATA["120"]))
-    sensors.append(DabbssonSensor(name, topic_base, "109", DPS_METADATA["109"]))
+    for dps_id, meta in DPS_METADATA.items():
+        sensors.append(DabbssonSensor(name, topic_base, dps_id, meta))
 
     async_add_entities(sensors)
 
