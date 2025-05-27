@@ -1,30 +1,32 @@
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.config_entries import ConfigEntry
+from .api import get_device_properties, set_device_property
 from .const import DOMAIN
+from .dps_metadata import DPS_METADATA
 
-async def async_setup_entry(hass, config_entry: ConfigEntry, async_add_entities):
-    client = hass.data[DOMAIN][config_entry.entry_id]["client"]
-    switches = [
-        DBSwitch(client, "Wechselrichter EIN/AUS", 108),
-        DBSwitch(client, "Zähler zurücksetzen", 105),
-    ]
+async def async_setup_entry(hass, config_entry, async_add_entities):
+    device_id = config_entry.data["device_id"]
+    headers = config_entry.data["headers"]
+    data = get_device_properties(device_id, headers)
+    switches = [DabbssonSwitch(dp, device_id, headers) for dp in data if dp["code"] in DPS_METADATA and DPS_METADATA[dp["code"]]["type"] == "bool" and DPS_METADATA[dp["code"]].get("writable")]
     async_add_entities(switches, True)
 
-class DBSwitch(SwitchEntity):
-    def __init__(self, client, name, key):
-        self._client = client
-        self._key = key
-        self._attr_name = f"DBS600M {name}"
-        self._attr_is_on = False
+class DabbssonSwitch(SwitchEntity):
+    def __init__(self, dp, device_id, headers):
+        self._device_id = device_id
+        self._headers = headers
+        self._code = dp.get("code")
+        self._value = dp.get("value")
+        self._attr_name = DPS_METADATA[self._code].get("name", self._code)
+        self._attr_unique_id = f"dbs600m_{dp.get('dp_id')}"
 
-    async def async_turn_on(self, **kwargs):
-        await self._client.write_gatt_char(self._key, b'\x01')
-        self._attr_is_on = True
+    @property
+    def is_on(self):
+        return self._value is True
 
-    async def async_turn_off(self, **kwargs):
-        await self._client.write_gatt_char(self._key, b'\x00')
-        self._attr_is_on = False
+    def turn_on(self, **kwargs):
+        set_device_property(self._device_id, self._headers, self._code, True)
+        self._value = True
 
-    async def async_update(self):
-        data = await self._client.read_gatt_char(self._key)
-        self._attr_is_on = bool(data[0])
+    def turn_off(self, **kwargs):
+        set_device_property(self._device_id, self._headers, self._code, False)
+        self._value = False
