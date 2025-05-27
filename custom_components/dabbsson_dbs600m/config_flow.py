@@ -15,7 +15,6 @@ class DabbssonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Required(CONF_CLIENT_ID): str,
                 vol.Required(CONF_CLIENT_SECRET): str,
-                vol.Required(CONF_ACCESS_TOKEN): str,
                 vol.Required(CONF_DEVICE_ID): str,
             })
         )
