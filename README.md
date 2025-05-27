@@ -1,70 +1,58 @@
-# 🧠 Dabbsson DBS600M Integration (Tuya via WLAN)
-
-Diese benutzerdefinierte Integration ermöglicht die Einbindung des **Dabbsson DBS600M** direkt über das **lokale Tuya-Protokoll via WLAN**. Die Kommunikation erfolgt per `tinytuya`, ohne Cloud oder Bluetooth.
-
----
-
-## ✅ Funktionen
-
-- 🔌 Verbindung über WLAN (lokales Tuya-Protokoll)  
-- 🔄 Automatische Erstellung von Sensoren & Schaltern  
-- 🖥️ Schreibzugriff auf unterstützte DPS-Werte  
-- 🔒 Keine Cloud notwendig  
-- 💬 Unterstützt Deutsch und Englisch
-
----
-
-## 🚀 Installation über HACS
-
-Diese Integration ist mit [HACS (Home Assistant Community Store)](https://hacs.xyz) kompatibel.
-
-### Schritt-für-Schritt
-
-1. Öffne Home Assistant → HACS → Integrationen  
-2. Klick auf „Benutzerdefinierte Repositories hinzufügen“  
-3. Repository-URL:
-
-```
-https://github.com/kleimj1/dabbsson_dbs600m
-```
-
-4. Kategorie: `Integration`  
-5. Danach: Integration wie gewohnt über `Einstellungen → Geräte & Dienste → Integration hinzufügen` einrichten
+Kategorie: **Integration**
+4. Nach dem Hinzufügen die Integration wie gewohnt einrichten:
+- → Einstellungen
+- → Geräte & Dienste
+- → Integration hinzufügen: **Dabbsson DBS600M**
 
 ---
 
 ## ⚙️ Konfiguration
 
-Die Integration wird über den Home Assistant UI Konfigurationsdialog eingerichtet.
+Nach dem Start wirst du nach den folgenden Werten gefragt:
 
-Du brauchst:
-
-- 📦 `Device ID`  
-- 🔑 `Local Key`  
-- 🌐 Lokale IP-Adresse des Geräts (z. B. `192.168.178.30`)
+- `Client ID` (aus Tuya Cloud Projekt)
+- `Client Secret`
+- `Access Token`
+- `Device ID` (z. B. `bf9e2bbde3f9c16dfe4vdb`)
 
 ---
 
 ## 🧪 Unterstützte Entitäten
 
 ### Sensoren
+| Entität                        | Beschreibung                     |
+|-------------------------------|----------------------------------|
+| `sensor.dbs600m_pv_leistung`  | PV-Leistung in Watt              |
+| `sensor.dbs600m_pv_spannung`  | PV-Spannung in Volt              |
+| `sensor.dbs600m_pv_strom`     | PV-Strom in Ampere               |
+| `sensor.dbs600m_inverter_temp`| Temperatur des Wechselrichters   |
+| `sensor.dbs600m_ac_leistung`  | AC-Ausgangsleistung              |
+| `sensor.dbs600m_batterie_soc` | Ladezustand der Batterie (%)     |
 
-- `sensor.dbs600m_pv_leistung` – PV-Leistung (W)  
-- `sensor.dbs600m_pv_spannung` – PV-Spannung (V)  
-- `sensor.dbs600m_pv_strom` – PV-Strom (A)  
-- `sensor.dbs600m_inverter_temp` – Temperatur des Wechselrichters (°C)  
-- `sensor.dbs600m_ac_ausgang_leistung` – AC Ausgangsleistung (W)  
-- `sensor.dbs600m_batterie_soc` – Batterie-SoC (%)
+### Schalter
+| Entität                         | Funktion                     |
+|--------------------------------|------------------------------|
+| `switch.dbs600m_inverter`      | Wechselrichter EIN/AUS       |
+| `switch.dbs600m_reset_energy`  | Energiezähler zurücksetzen   |
 
-### Schalter / Steuerung
+### Zahleneingabe
+| Entität                           | Beschreibung                  |
+|----------------------------------|-------------------------------|
+| `number.dbs600m_power_limit`     | Leistungslimit in %          |
 
-- `switch.dbs600m_wechselrichter` – Wechselrichter EIN/AUS  
-- `switch.dbs600m_zaehler_zuruecksetzen` – Energiezähler zurücksetzen  
-- `number.dbs600m_power_limit` – Ausgangsleistungsbegrenzung (%)  
-- `select.dbs600m_arbeitsmodus` – Arbeitsmodus (Eco / Ladung)
+### Auswahlfeld
+| Entität                          | Beschreibung                  |
+|----------------------------------|-------------------------------|
+| `select.dbs600m_arbeitsmodus`   | Eco-Modus oder Batteriebetrieb|
 
 ---
 
-## 🔒 Datenschutz
+## 🔐 Datenschutz
 
-Die Integration arbeitet vollständig lokal. Es werden keine Daten an Cloud-Dienste übertragen.
+Diese Integration verwendet ausschließlich die **offizielle Tuya Cloud API**. Es werden keine Daten an Dritte weitergeleitet.
+
+---
+
+## 📄 Lizenz
+
+MIT License
