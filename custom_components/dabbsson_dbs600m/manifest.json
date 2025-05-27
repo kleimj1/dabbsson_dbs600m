@@ -1,9 +1,14 @@
 {
   "domain": "dbs600m",
-  "name": "Dabbsson DBS600M Cloud",
-  "version": "0.1.0",
-  "documentation": "https://github.com/kleimj1/dbs600m",
-  "requirements": ["requests"],
+  "name": "Dabbsson DBS600M (Tuya Cloud)",
+  "version": "1.0.0",
+  "documentation": "https://github.com/kleimj1/dabbsson_dbs600m",
+  "requirements": [
+    "requests>=2.25.1"
+  ],
   "codeowners": ["@kleimj1"],
-  "config_flow": true
+  "config_flow": true,
+  "iot_class": "cloud_polling",
+  "dependencies": [],
+  "homeassistant": "2023.0.0"
 }
