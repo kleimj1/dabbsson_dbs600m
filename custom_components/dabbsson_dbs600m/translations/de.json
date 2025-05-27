@@ -1,14 +1,33 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "title": "Dabbsson Sensor",
-                "description": "Richte dein Dabbsson DBS600M-Gerät ein",
-                "data": {
-                    "name": "Name",
-                    "mqtt_topic": "MQTT-Topic"
-                }
-            }
+  "title": "Dabbsson DBS600M Cloud-Integration",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Gerät verbinden",
+        "description": "Bitte gib die Zugangsdaten zur Tuya Cloud und dein Geräte-ID ein.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret",
+          "access_token": "Access Token",
+          "device_id": "Geräte-ID"
         }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zur Tuya Cloud fehlgeschlagen.",
+      "invalid_auth": "Ungültige Zugangsdaten.",
+      "unknown": "Unbekannter Fehler. Bitte Logs prüfen."
+    },
+    "abort": {
+      "already_configured": "Dieses Gerät ist bereits konfiguriert."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Optionen konfigurieren",
+        "description": "Hier kannst du optionale Einstellungen vornehmen."
+      }
+    }
+  }
 }
