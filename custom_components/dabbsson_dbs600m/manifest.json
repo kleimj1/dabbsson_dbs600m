@@ -1,7 +1,7 @@
 {
   "domain": "dbs600m",
   "name": "Dabbsson DBS600M (Tuya Cloud)",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "documentation": "https://github.com/kleimj1/dabbsson_dbs600m",
   "requirements": [
     "requests>=2.25.1"
