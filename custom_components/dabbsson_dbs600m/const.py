@@ -1,10 +1,6 @@
-"""Konstanten für die Dabbsson DBS600M Integration."""
-
-DOMAIN = "dabbsson_dbs600m"
-
-DEFAULT_NAME = "Dabbsson DBS600M"
-MANUFACTURER = "Dabbsson"
-MODEL = "DBS600M"
-CONF_MQTT_TOPIC = "mqtt_topic"
-CONF_DEVICES = "devices"
-ICON = "mdi:solar-power"
+DOMAIN = "dbs600m"
+CONF_CLIENT_ID = "client_id"
+CONF_CLIENT_SECRET = "client_secret"
+CONF_ACCESS_TOKEN = "access_token"
+CONF_DEVICE_ID = "device_id"
+API_BASE_URL = "https://openapi.tuyaeu.com"
