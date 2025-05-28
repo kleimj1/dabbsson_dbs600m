@@ -42,13 +42,13 @@ class TuyaCloudAPI:
             return
 
         t = self._get_timestamp()
-        url_path = "/v1.0/token?grant_type=1"
-        path_for_sign = "/v1.0/token"
-        sign = self._sign("GET", path_for_sign, t)
-        headers = self._get_headers("GET", path_for_sign, t, sign)
+        path_sign = "/v1.0/token"
+        path_query = "/v1.0/token?grant_type=1"
+        sign = self._sign("GET", path_sign, t)
+        headers = self._get_headers("GET", path_sign, t, sign)
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"{self.api_url}{url_path}", headers=headers) as response:
+            async with session.get(f"{self.api_url}{path_query}", headers=headers) as response:
                 result = await response.json()
                 if not result.get("success"):
                     raise Exception(f"Token Error: {result}")
