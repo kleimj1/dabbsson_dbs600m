@@ -52,14 +52,13 @@ class TuyaCloudAPI:
 
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers) as response:
-                if response.status == 200:
-                    data = (await response.json())["result"]
-                    self.access_token = data["access_token"]
-                    self.refresh_token = data["refresh_token"]
-                    self.expire_time = time.time() + data["expire_time"] - 60
-                else:
-                    text = await response.text()
-                    raise Exception(f"Token-Abruf fehlgeschlagen: {text}")
+                result = await response.json()
+                if not result.get("success"):
+                    raise Exception(f"Token Error: {result}")
+                data = result["result"]
+                self.access_token = data["access_token"]
+                self.refresh_token = data["refresh_token"]
+                self.expire_time = time.time() + data["expire_time"] - 60
 
     async def get_device_properties(self, device_id):
         await self._ensure_token()
@@ -72,9 +71,10 @@ class TuyaCloudAPI:
 
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers) as response:
-                if response.status == 200:
-                    return (await response.json()).get("result", {}).get("properties", [])
-                return []
+                result = await response.json()
+                if not result.get("success"):
+                    raise Exception(f"Get properties failed: {result}")
+                return result.get("result", {}).get("properties", [])
 
     async def set_device_property(self, device_id, code, value):
         await self._ensure_token()
@@ -88,4 +88,7 @@ class TuyaCloudAPI:
 
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=body_data) as response:
-                return response.status == 200
+                result = await response.json()
+                if not result.get("success"):
+                    raise Exception(f"Set property failed: {result}")
+                return True
