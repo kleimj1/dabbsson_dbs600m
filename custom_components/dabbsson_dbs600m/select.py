@@ -1,19 +1,27 @@
 from homeassistant.components.select import SelectEntity
-from .api import get_device_properties, set_device_property
+from .api import TuyaCloudAPI
 from .const import DOMAIN
 from .dps_metadata import DPS_METADATA
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
+    client_id = config_entry.data["client_id"]
+    client_secret = config_entry.data["client_secret"]
     device_id = config_entry.data["device_id"]
-    headers = config_entry.data["headers"]
-    data = get_device_properties(device_id, headers)
-    selects = [DabbssonSelect(dp, device_id, headers) for dp in data if dp["code"] in DPS_METADATA and DPS_METADATA[dp["code"]]["type"] == "enum"]
+
+    api = TuyaCloudAPI(client_id, client_secret)
+    data = api.get_device_properties(device_id)
+
+    selects = [
+        DabbssonSelect(dp, api, device_id)
+        for dp in data
+        if dp["code"] in DPS_METADATA and DPS_METADATA[dp["code"]]["type"] == "enum"
+    ]
     async_add_entities(selects, True)
 
 class DabbssonSelect(SelectEntity):
-    def __init__(self, dp, device_id, headers):
+    def __init__(self, dp, api, device_id):
         self._device_id = device_id
-        self._headers = headers
+        self._api = api
         self._code = dp.get("code")
         self._value = dp.get("value")
         meta = DPS_METADATA[self._code]
@@ -26,5 +34,6 @@ class DabbssonSelect(SelectEntity):
         return self._value
 
     def select_option(self, option):
-        set_device_property(self._device_id, self._headers, self._code, option)
-        self._value = option
+        success = self._api.set_device_property(self._device_id, self._code, option)
+        if success:
+            self._value = option
