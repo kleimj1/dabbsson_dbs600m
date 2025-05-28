@@ -9,7 +9,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     device_id = config_entry.data["device_id"]
 
     api = TuyaCloudAPI(client_id, client_secret)
-    data = api.get_device_properties(device_id)
+    data = await api.get_device_properties(device_id)
 
     selects = [
         DabbssonSelect(dp, api, device_id)
