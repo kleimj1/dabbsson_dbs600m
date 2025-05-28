@@ -85,7 +85,7 @@ DPS_METADATA = {
     },
     "106": {
         "name": "AC-Strom",
-        "type": "value",vergessen
+        "type": "value",
         "writable": false,
         "description": "AC-Strom",
         "unit": "A"
