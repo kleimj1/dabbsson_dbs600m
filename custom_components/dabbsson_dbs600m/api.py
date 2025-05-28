@@ -1,8 +1,8 @@
 import time
 import hashlib
 import hmac
-import requests
 import json
+import aiohttp
 from .const import API_BASE_URL
 
 class TuyaCloudAPI:
@@ -27,10 +27,7 @@ class TuyaCloudAPI:
         ).hexdigest().upper()
         return signature
 
-    def _get_headers(self, method, path, access_token="", body=""):
-        t = self._get_timestamp()
-        body_str = json.dumps(body) if body else ""
-        sign = self._sign(method, path, t, access_token, body_str)
+    def _get_headers(self, method, path, t, sign, access_token=""):
         headers = {
             "client_id": self.client_id,
             "sign": sign,
@@ -43,37 +40,52 @@ class TuyaCloudAPI:
             headers["access_token"] = access_token
         return headers
 
-    def _ensure_token(self):
+    async def _ensure_token(self):
         if self.access_token and time.time() < self.expire_time:
             return
 
-        url = f"{self.api_url}/v1.0/token?grant_type=1"
-        headers = self._get_headers("GET", "/v1.0/token?grant_type=1")
-        response = requests.get(url, headers=headers)
-
-        if response.ok:
-            data = response.json()["result"]
-            self.access_token = data["access_token"]
-            self.refresh_token = data["refresh_token"]
-            self.expire_time = time.time() + data["expire_time"] - 60
-        else:
-            raise Exception(f"Token-Abruf fehlgeschlagen: {response.text}")
-
-    def get_device_properties(self, device_id):
-        self._ensure_token()
-        path = f"/v2.0/cloud/thing/{device_id}/shadow/properties"
+        t = self._get_timestamp()
+        path = "/v1.0/token?grant_type=1"
+        sign = self._sign("GET", path, t)
+        headers = self._get_headers("GET", path, t, sign)
         url = f"{self.api_url}{path}"
-        headers = self._get_headers("GET", path, self.access_token)
-        response = requests.get(url, headers=headers)
-        if response.ok:
-            return response.json().get("result", {}).get("properties", [])
-        return []
 
-    def set_device_property(self, device_id, code, value):
-        self._ensure_token()
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as response:
+                if response.status == 200:
+                    data = (await response.json())["result"]
+                    self.access_token = data["access_token"]
+                    self.refresh_token = data["refresh_token"]
+                    self.expire_time = time.time() + data["expire_time"] - 60
+                else:
+                    text = await response.text()
+                    raise Exception(f"Token-Abruf fehlgeschlagen: {text}")
+
+    async def get_device_properties(self, device_id):
+        await self._ensure_token()
+        t = self._get_timestamp()
+        path = f"/v2.0/cloud/thing/{device_id}/shadow/properties"
+        body = ""
+        sign = self._sign("GET", path, t, self.access_token, body)
+        headers = self._get_headers("GET", path, t, sign, self.access_token)
+        url = f"{self.api_url}{path}"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as response:
+                if response.status == 200:
+                    return (await response.json()).get("result", {}).get("properties", [])
+                return []
+
+    async def set_device_property(self, device_id, code, value):
+        await self._ensure_token()
         path = f"/v2.0/cloud/thing/{device_id}/shadow/properties/issue"
         url = f"{self.api_url}{path}"
-        body = {"properties": json.dumps({code: value})}
-        headers = self._get_headers("POST", path, self.access_token, body)
-        response = requests.post(url, headers=headers, json=body)
-        return response.ok
+        body_data = {"properties": json.dumps({code: value})}
+        body_str = json.dumps(body_data)
+        t = self._get_timestamp()
+        sign = self._sign("POST", path, t, self.access_token, body_str)
+        headers = self._get_headers("POST", path, t, sign, self.access_token)
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=body_data) as response:
+                return response.status == 200
