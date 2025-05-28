@@ -47,7 +47,6 @@ class TuyaCloudAPI:
         if self.access_token and time.time() < self.expire_time:
             return
 
-        # Fetch new token
         url = f"{self.api_url}/v1.0/token?grant_type=1"
         headers = self._get_headers("GET", "/v1.0/token?grant_type=1")
         response = requests.get(url, headers=headers)
@@ -58,7 +57,7 @@ class TuyaCloudAPI:
             self.refresh_token = data["refresh_token"]
             self.expire_time = time.time() + data["expire_time"] - 60
         else:
-            raise Exception(f"Failed to get token: {response.text}")
+            raise Exception(f"Token-Abruf fehlgeschlagen: {response.text}")
 
     def get_device_properties(self, device_id):
         self._ensure_token()
