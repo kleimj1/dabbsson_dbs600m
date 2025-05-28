@@ -13,18 +13,18 @@ class TuyaCloudAPI:
         self.refresh_token = None
         self.expire_time = 0
 
-    def _get_timestamp(self):
+    def _get_timestamp(self) -> str:
         return str(int(time.time() * 1000))
 
-    def _sign(self, method, path, t, access_token="", body=""):
-        payload = self.client_id + access_token + t + method.upper() + path + body
+    def _sign(self, method: str, path: str, t: str, access_token: str = "", body: str = "") -> str:
+        message = self.client_id + access_token + t + method.upper() + path + body
         return hmac.new(
             self.client_secret.encode("utf-8"),
-            payload.encode("utf-8"),
+            message.encode("utf-8"),
             hashlib.sha256,
         ).hexdigest().upper()
 
-    def _get_headers(self, method, path, t, sign, access_token=""):
+    def _get_headers(self, t: str, sign: str, access_token: str = "") -> dict:
         headers = {
             "client_id": self.client_id,
             "sign": sign,
@@ -45,7 +45,7 @@ class TuyaCloudAPI:
         path_sign = "/v1.0/token"
         path_query = "/v1.0/token?grant_type=1"
         sign = self._sign("GET", path_sign, t)
-        headers = self._get_headers("GET", path_sign, t, sign)
+        headers = self._get_headers(t, sign)
 
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{self.api_url}{path_query}", headers=headers) as response:
@@ -61,8 +61,9 @@ class TuyaCloudAPI:
         await self._ensure_token()
         t = self._get_timestamp()
         path = f"/v2.0/cloud/thing/{device_id}/shadow/properties"
-        sign = self._sign("GET", path, t, self.access_token)
-        headers = self._get_headers("GET", path, t, sign, self.access_token)
+        body_str = ""
+        sign = self._sign("GET", path, t, self.access_token, body_str)
+        headers = self._get_headers(t, sign, self.access_token)
 
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{self.api_url}{path}", headers=headers) as response:
@@ -74,14 +75,14 @@ class TuyaCloudAPI:
     async def set_device_property(self, device_id, code, value):
         await self._ensure_token()
         path = f"/v2.0/cloud/thing/{device_id}/shadow/properties/issue"
-        body = {"properties": json.dumps({code: value})}
-        body_str = json.dumps(body)
+        body_data = {"properties": json.dumps({code: value})}
+        body_str = json.dumps(body_data, separators=(",", ":"))
         t = self._get_timestamp()
         sign = self._sign("POST", path, t, self.access_token, body_str)
-        headers = self._get_headers("POST", path, t, sign, self.access_token)
+        headers = self._get_headers(t, sign, self.access_token)
 
         async with aiohttp.ClientSession() as session:
-            async with session.post(f"{self.api_url}{path}", headers=headers, json=body) as response:
+            async with session.post(f"{self.api_url}{path}", headers=headers, data=body_str) as response:
                 result = await response.json()
                 if not result.get("success"):
                     raise Exception(f"Set property failed: {result}")
