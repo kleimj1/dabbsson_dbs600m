@@ -46,8 +46,9 @@ class TuyaCloudAPI:
 
         t = self._get_timestamp()
         path = "/v1.0/token?grant_type=1"
-        sign = self._sign("GET", path, t)
-        headers = self._get_headers("GET", path, t, sign)
+        path_sign = "/v1.0/token"  # korrekt: ohne Query-String signieren
+        sign = self._sign("GET", path_sign, t)
+        headers = self._get_headers("GET", path_sign, t, sign)
         url = f"{self.api_url}{path}"
 
         async with aiohttp.ClientSession() as session:
