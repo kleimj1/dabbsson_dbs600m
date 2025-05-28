@@ -1,58 +1,105 @@
-Kategorie: **Integration**
-4. Nach dem Hinzufügen die Integration wie gewohnt einrichten:
-- → Einstellungen
-- → Geräte & Dienste
-- → Integration hinzufügen: **Dabbsson DBS600M**
+# Dabbsson DBS600M Integration für Home Assistant (Tuya Cloud)
+
+Diese benutzerdefinierte Integration ermöglicht die direkte Einbindung des Dabbsson DBS600M Wechselrichters über die **offizielle Tuya Cloud API** in Home Assistant – ohne lokale API oder Bluetooth.
+
+---
+
+## ✨ Features
+
+- 🌩️ Live-Daten über PV-Leistung, Stromstärke, Temperatur, BatteriesoC etc.
+- 🔁 Steuerung: Wechselrichter EIN/AUS, Power-Limit setzen, Zähler zurücksetzen
+- 🧮 Zahleneingaben & Auswahllisten (Moduswahl, Leistungsgrenzen etc.)
+- 📡 Cloud-Zugriff (kein lokaler Netzwerkzugriff erforderlich)
+- 🧠 Automatische Entitätenerkennung auf Basis des Tuya Datenmodells
+- 📑 DPS-Mapping vollständig in `dps_metadata.py` definiert
+
+---
+
+## 🚀 Installation via HACS
+
+1. Öffne Home Assistant → HACS → Integrationen
+2. Klicke auf „Benutzerdefiniertes Repository hinzufügen“
+   - URL: `https://github.com/kleimj1/dabbsson_dbs600m`
+   - Kategorie: **Integration**
+3. Suche unter Geräte & Dienste nach „**Dabbsson DBS600M**“ und richte die Integration ein
 
 ---
 
 ## ⚙️ Konfiguration
 
-Nach dem Start wirst du nach den folgenden Werten gefragt:
+Bei der Einrichtung wirst du nach folgenden Daten gefragt:
 
-- `Client ID` (aus Tuya Cloud Projekt)
+- `Client ID` – aus deinem Tuya IoT Cloud-Projekt
 - `Client Secret`
-- `Access Token`
-- `Device ID` (z. B. `bf9e2bbde3f9c16dfe4vdb`)
+- `Device ID` – z. B. `bf9e2bbde3f9c16dfe4vdb`
+
+Das Access Token wird automatisch über die API geholt und bei Bedarf erneuert.
 
 ---
 
-## 🧪 Unterstützte Entitäten
+## 🧪 Unterstützte Entitäten (Auszug)
 
-### Sensoren
-| Entität                        | Beschreibung                     |
-|-------------------------------|----------------------------------|
-| `sensor.dbs600m_pv_leistung`  | PV-Leistung in Watt              |
-| `sensor.dbs600m_pv_spannung`  | PV-Spannung in Volt              |
-| `sensor.dbs600m_pv_strom`     | PV-Strom in Ampere               |
-| `sensor.dbs600m_inverter_temp`| Temperatur des Wechselrichters   |
-| `sensor.dbs600m_ac_leistung`  | AC-Ausgangsleistung              |
-| `sensor.dbs600m_batterie_soc` | Ladezustand der Batterie (%)     |
+### Sensoren (`sensor.*`)
 
-### Schalter
-| Entität                         | Funktion                     |
-|--------------------------------|------------------------------|
-| `switch.dbs600m_inverter`      | Wechselrichter EIN/AUS       |
-| `switch.dbs600m_reset_energy`  | Energiezähler zurücksetzen   |
+| Entität                              | Beschreibung                        |
+|-------------------------------------|-------------------------------------|
+| `pv_power`                          | PV-Eingangsleistung (W)             |
+| `pv_volt`                           | PV-Spannung (V)                     |
+| `pv_current`                        | PV-Strom (A)                        |
+| `temperature`                       | Inverter-Temperatur (°C)            |
+| `ac_current`                        | AC-Strom (A)                        |
+| `out_power`                         | AC-Ausgangsleistung (W)             |
+| `bat_capacity`                      | Batteriekapazität (%)               |
+| `day_energy`, `energy`, `total_power` | Energie-Statistiken (kWh)           |
+| `plant`                             | Virtuell gepflanzte Bäume (pcs)     |
+| `emission`                          | CO2-Einsparung (kg)                 |
+| u.v.m. (siehe `dps_metadata.py`)    |                                     |
 
-### Zahleneingabe
-| Entität                           | Beschreibung                  |
-|----------------------------------|-------------------------------|
-| `number.dbs600m_power_limit`     | Leistungslimit in %          |
+### Schalter (`switch.*`)
 
-### Auswahlfeld
-| Entität                          | Beschreibung                  |
-|----------------------------------|-------------------------------|
-| `select.dbs600m_arbeitsmodus`   | Eco-Modus oder Batteriebetrieb|
+| Entität                     | Beschreibung                         |
+|----------------------------|--------------------------------------|
+| `switch`                   | Wechselrichter EIN/AUS               |
+| `clear_energy`             | Zähler zurücksetzen                  |
+| `anti_reflux_flag`         | Anti-Feed-In-Funktion                |
+| `add_node`, `delete_all_nodes` | Knotenmanagement                     |
+
+### Zahlen (`number.*`)
+
+| Entität                   | Beschreibung                          |
+|--------------------------|---------------------------------------|
+| `power_adjustment`       | Leistungsgrenze in %                  |
+| `inv_mode_set`           | INV Modus Parameter                   |
+
+### Auswahlfelder (`select.*`)
+
+| Entität         | Beschreibung                    |
+|----------------|---------------------------------|
+| `workmode`     | Eco- oder Batteriebetrieb       |
+| `pv_to_bat`    | Ladevorgang aktiv (enum)        |
+| `power_src`    | Eingangsquelle (enum)           |
 
 ---
 
-## 🔐 Datenschutz
+## 🔒 Datenschutz
 
-Diese Integration verwendet ausschließlich die **offizielle Tuya Cloud API**. Es werden keine Daten an Dritte weitergeleitet.
+Diese Integration kommuniziert **ausschließlich mit der Tuya Cloud API**. Es werden keine Daten an Dritte weitergegeben oder lokal zwischengespeichert. Das Access Token wird automatisch verwaltet.
 
 ---
 
-## 📄 Lizenz
+## 🧱 Struktur
 
-MIT License
+```text
+custom_components/dbs600m/
+├── __init__.py
+├── api.py
+├── const.py
+├── config_flow.py
+├── dps_metadata.py
+├── manifest.json
+├── sensor.py
+├── switch.py
+├── number.py
+├── select.py
+├── translations/
+│   └── de.json
