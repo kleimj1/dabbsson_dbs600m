@@ -1,89 +1,77 @@
-import time
-import hashlib
-import hmac
-import json
-import aiohttp
+import logging
+import asyncio
+from datetime import timedelta
+from typing import Any
 
-class TuyaCloudAPI:
-    def __init__(self, client_id, client_secret, region="eu"):
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.api_url = f"https://openapi.tuya{region}.com"
-        self.access_token = None
-        self.refresh_token = None
-        self.expire_time = 0
+from tuya_connector import TuyaOpenAPI
 
-    def _get_timestamp(self) -> str:
-        return str(int(time.time() * 1000))
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-    def _sign(self, method: str, path: str, t: str, access_token: str = "", body: str = "") -> str:
-        message = self.client_id + access_token + t + method.upper() + path + body
-        return hmac.new(
-            self.client_secret.encode("utf-8"),
-            message.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest().upper()
+from .const import (
+    DOMAIN,
+    CONF_CLIENT_ID,
+    CONF_CLIENT_SECRET,
+    CONF_DEVICE_ID,
+    CONF_API_ENDPOINT,
+    DATA_COORDINATOR,
+)
 
-    def _get_headers(self, t: str, sign: str, access_token: str = "") -> dict:
-        headers = {
-            "client_id": self.client_id,
-            "sign": sign,
-            "t": t,
-            "sign_method": "HMAC-SHA256",
-            "mode": "cors",
-            "Content-Type": "application/json",
-        }
-        if access_token:
-            headers["access_token"] = access_token
-        return headers
+_LOGGER = logging.getLogger(__name__)
 
-    async def _ensure_token(self):
-        if self.access_token and time.time() < self.expire_time:
-            return
 
-        t = self._get_timestamp()
-        path_sign = "/v1.0/token"
-        path_query = "/v1.0/token?grant_type=1"
-        sign = self._sign("GET", path_sign, t)
-        headers = self._get_headers(t, sign)
+class TuyaDeviceApi:
+    """API Wrapper für Tuya Wechselrichter."""
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{self.api_url}{path_query}", headers=headers) as response:
-                result = await response.json()
-                if not result.get("success"):
-                    raise Exception(f"Token Error: {result}")
-                token_data = result["result"]
-                self.access_token = token_data["access_token"]
-                self.refresh_token = token_data["refresh_token"]
-                self.expire_time = time.time() + token_data["expire_time"] - 60
+    def __init__(self, client_id: str, client_secret: str, device_id: str, api_endpoint: str):
+        self.device_id = device_id
+        self._openapi = TuyaOpenAPI(api_endpoint, client_id, client_secret)
+        self._connected = False
 
-    async def get_device_properties(self, device_id):
-        await self._ensure_token()
-        t = self._get_timestamp()
-        path = f"/v2.0/cloud/thing/{device_id}/shadow/properties"
-        body_str = ""
-        sign = self._sign("GET", path, t, self.access_token, body_str)
-        headers = self._get_headers(t, sign, self.access_token)
+    def connect(self) -> bool:
+        """Verbindet zur Tuya Cloud API."""
+        try:
+            self._openapi.connect()
+            self._connected = True
+            _LOGGER.debug("Verbindung zur Tuya Cloud erfolgreich.")
+            return True
+        except Exception as err:
+            _LOGGER.warning("Fehler bei Tuya-API-Verbindung: %s", err)
+            return False
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{self.api_url}{path}", headers=headers) as response:
-                result = await response.json()
-                if not result.get("success"):
-                    raise Exception(f"Get properties failed: {result}")
-                return result.get("result", {}).get("properties", [])
+    def get_status(self) -> dict[str, Any]:
+        """Liefert Gerätestatus."""
+        response = self._openapi.get(f"/v1.0/iot-03/devices/{self.device_id}/status")
+        if response.get("success"):
+            return {item["code"]: item["value"] for item in response.get("result", [])}
+        raise Exception(f"Fehler beim Abrufen des Gerätestatus: {response}")
 
-    async def set_device_property(self, device_id, code, value):
-        await self._ensure_token()
-        path = f"/v2.0/cloud/thing/{device_id}/shadow/properties/issue"
-        body_data = {"properties": json.dumps({code: value})}
-        body_str = json.dumps(body_data, separators=(",", ":"))
-        t = self._get_timestamp()
-        sign = self._sign("POST", path, t, self.access_token, body_str)
-        headers = self._get_headers(t, sign, self.access_token)
+    def send_command(self, code: str, value: Any) -> bool:
+        """Sendet einen Steuerbefehl an das Gerät."""
+        commands = {"commands": [{"code": code, "value": value}]}
+        response = self._openapi.post(f"/v1.0/iot-03/devices/{self.device_id}/commands", commands)
+        success = response.get("success", False)
+        if not success:
+            _LOGGER.warning("Senden des Befehls %s = %s fehlgeschlagen: %s", code, value, response)
+        return success
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(f"{self.api_url}{path}", headers=headers, data=body_str) as response:
-                result = await response.json()
-                if not result.get("success"):
-                    raise Exception(f"Set property failed: {result}")
-                return True
+
+class DabbssonCoordinator(DataUpdateCoordinator):
+    """Koordiniert Updates für den Wechselrichter."""
+
+    def __init__(self, hass: HomeAssistant, api: TuyaDeviceApi, name: str):
+        """Initialisierung."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=name,
+            update_interval=timedelta(seconds=30),
+        )
+        self.api = api
+
+    async def _async_update_data(self) -> dict[str, Any]:
+        """Abfrage von Daten bei Tuya."""
+        try:
+            return await asyncio.to_thread(self.api.get_status)
+        except Exception as err:
+            raise UpdateFailed(f"Fehler beim Tuya-Datenabruf: {err}") from err
