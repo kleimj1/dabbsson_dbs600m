@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import voluptuous as vol
 from homeassistant import config_entries
@@ -39,7 +40,6 @@ class DabbssonDBS600MConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             device_id = user_input[CONF_DEVICE_ID]
             api_endpoint = user_input.get(CONF_API_ENDPOINT, DEFAULT_API_ENDPOINT)
 
-            # Prüfe Tuya-Zugangsdaten
             if await self._validate_tuya_credentials(client_id, client_secret, api_endpoint, device_id):
                 await self.async_set_unique_id(device_id)
                 self._abort_if_unique_id_configured()
@@ -73,9 +73,8 @@ class DabbssonDBS600MConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Testet Tuya API Verbindung."""
         try:
             api = TuyaOpenAPI(api_endpoint, client_id, client_secret)
-            api.connect()
-
-            result = api.get(f"/v1.0/iot-03/devices/{device_id}/status")
+            await asyncio.to_thread(api.connect)
+            result = await asyncio.to_thread(api.get, f"/v1.0/iot-03/devices/{device_id}/status")
             if result.get("success", False):
                 _LOGGER.debug("Tuya-Validierung erfolgreich: %s", result)
                 return True
