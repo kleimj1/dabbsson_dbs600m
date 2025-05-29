@@ -1,20 +1,32 @@
-# Dabbsson DBS600M (Tuya Cloud)
+# Dabbsson DBS600M Integration
 
-**Beschreibung:**
-Diese Integration erlaubt die Steuerung und Überwachung des Dabbsson DBS600M über die Tuya Cloud API. Unterstützt werden diverse Sensordaten, Steuerbefehle und Statusabfragen.
+Integration zur Anbindung des Wechselrichters **Dabbsson DBS600M** über die **Tuya Cloud API**.
 
-**Features:**
-- Automatisches Einlesen der verfügbaren Datenpunkte
-- Unterstützung für Sensor, Switch, Number, Select
-- Cloud-basierte Kommunikation (kein lokaler Zugriff notwendig)
+## 🔧 Funktionen
 
-**Benötigte Daten:**
-- Client ID
-- Client Secret
-- Access Token
-- Device ID
+- Unterstützt mehrere Geräteinstanzen
+- Zeigt aktuelle Statuswerte (Sensoren)
+- Ermöglicht Steuerung über Schalter, Regler, Auswahlmenüs
+- Verbindung über `tuya-connector-python`
 
-**Nutzung:**
-1. Im Tuya Developer Portal registrieren und Projekt + Gerät konfigurieren
-2. Integration in Home Assistant installieren und Zugangsdaten eintragen
-3. Entitäten werden automatisch erstellt
+## 🛠 Konfiguration
+
+Die Konfiguration erfolgt vollständig über das UI. Du benötigst:
+
+- Tuya **Client ID** & **Client Secret**
+- Die **Device ID** des Geräts (z. B. aus der Tuya IoT Cloud Console)
+
+## 💡 Unterstützte Entitäten
+
+- `sensor` (z. B. Temperatur, Spannung, Leistung)
+- `switch` (z. B. Wechselrichter EIN/AUS)
+- `number` (z. B. Leistungsbegrenzung)
+- `select` (z. B. Arbeitsmodus wählen)
+
+## 🗺 API-Region
+
+Standardmäßig wird Tuya Europe verwendet (`https://openapi.tuyaeu.com`). Optional kannst du einen anderen Endpunkt wählen.
+
+## 📦 Abhängigkeiten
+
+- `tuya-connector-python`
