@@ -1,0 +1,24 @@
+{
+  "title": "Dabbsson DBS600M",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dabbsson DBS600M Konfiguration",
+        "description": "Verbinde deinen Wechselrichter mit der Tuya Cloud API.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret",
+          "device_id": "Device ID",
+          "api_endpoint": "API Endpoint",
+          "name": "Name"
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "Authentifizierung fehlgeschlagen. Bitte Zugangsdaten prüfen."
+    },
+    "abort": {
+      "already_configured": "Dieses Gerät ist bereits konfiguriert."
+    }
+  }
+}
