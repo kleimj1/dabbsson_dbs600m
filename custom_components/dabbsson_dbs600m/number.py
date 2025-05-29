@@ -1,44 +1,53 @@
+from __future__ import annotations
+
+import logging
 from homeassistant.components.number import NumberEntity
-from .api import TuyaCloudAPI
-from .const import DOMAIN
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .const import DOMAIN, DATA_COORDINATOR, DATA_DEVICE
 from .dps_metadata import DPS_METADATA
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    client_id = config_entry.data["client_id"]
-    client_secret = config_entry.data["client_secret"]
-    device_id = config_entry.data["device_id"]
+_LOGGER = logging.getLogger(__name__)
 
-    api = TuyaCloudAPI(client_id, client_secret)
-    data = await api.get_device_properties(device_id)
 
-    numbers = [
-        DabbssonNumber(dp, api, device_id)
-        for dp in data
-        if dp["code"] in DPS_METADATA
-        and DPS_METADATA[dp["code"]]["type"] == "value"
-        and DPS_METADATA[dp["code"]].get("writable")
-    ]
-    async_add_entities(numbers, True)
+async def async_setup_entry(hass, entry, async_add_entities):
+    """Setze alle steuerbaren Zahlenwerte als NumberEntity."""
+    coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
+    api = hass.data[DOMAIN][entry.entry_id][DATA_DEVICE]
 
-class DabbssonNumber(NumberEntity):
-    def __init__(self, dp, api, device_id):
-        self._device_id = device_id
-        self._api = api
-        self._code = dp.get("code")
-        self._value = dp.get("value")
-        meta = DPS_METADATA[self._code]
-        self._attr_name = meta.get("name", self._code)
-        self._attr_unique_id = f"dbs600m_{dp.get('dp_id')}"
-        self._attr_unit_of_measurement = meta.get("unit")
-        self._attr_native_min_value = meta.get("min", 0)
-        self._attr_native_max_value = meta.get("max", 100)
-        self._attr_native_step = meta.get("step", 1)
+    entities = []
+
+    for dps_code, meta in DPS_METADATA.items():
+        if meta["type"] == "value" and meta.get("writable", False):
+            entities.append(DabbssonNumber(coordinator, api, dps_code, meta))
+
+    async_add_entities(entities)
+
+
+class DabbssonNumber(CoordinatorEntity, NumberEntity):
+    """Repräsentiert einen steuerbaren Zahlenwert des Wechselrichters."""
+
+    def __init__(self, coordinator, api, dps_code: str, meta: dict):
+        super().__init__(coordinator)
+        self.api = api
+        self._dps_code = dps_code
+        self._meta = meta
+
+        self._attr_name = meta["name"]
+        self._attr_unique_id = f"{api.device_id}_{dps_code}"
+        self._attr_native_unit_of_measurement = meta.get("unit")
+
+        # Optional: Setze sinnvolle Defaultwerte, falls keine Limits bekannt
+        self._attr_native_min_value = 0
+        self._attr_native_max_value = 100
+        self._attr_native_step = 1
 
     @property
-    def native_value(self):
-        return self._value
+    def native_value(self) -> float:
+        """Aktueller Wert der Entität."""
+        return self.coordinator.data.get(self._dps_code)
 
-    def set_native_value(self, value):
-        success = self._api.set_device_property(self._device_id, self._code, value)
-        if success:
-            self._value = value
+    async def async_set_native_value(self, value: float):
+        """Setze einen neuen Wert."""
+        if self.api.send_command(self._dps_code, value):
+            await self.coordinator.async_request_refresh()
