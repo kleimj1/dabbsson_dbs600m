@@ -15,23 +15,24 @@ from .const import (
     CONF_DEVICE_ID,
     CONF_API_ENDPOINT,
     DATA_COORDINATOR,
+    DATA_DEVICE,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class TuyaDeviceApi:
-    """API Wrapper für Tuya Wechselrichter."""
+    """API Wrapper fÃ¼r Tuya Wechselrichter."""
 
     def __init__(self, client_id: str, client_secret: str, device_id: str, api_endpoint: str):
         self.device_id = device_id
         self._openapi = TuyaOpenAPI(api_endpoint, client_id, client_secret)
         self._connected = False
 
-    def connect(self) -> bool:
-        """Verbindet zur Tuya Cloud API."""
+    async def connect(self) -> bool:
+        """Verbindet zur Tuya Cloud API (async-safe)."""
         try:
-            self._openapi.connect()
+            await asyncio.to_thread(self._openapi.connect)
             self._connected = True
             _LOGGER.debug("Verbindung zur Tuya Cloud erfolgreich.")
             return True
@@ -39,17 +40,21 @@ class TuyaDeviceApi:
             _LOGGER.warning("Fehler bei Tuya-API-Verbindung: %s", err)
             return False
 
-    def get_status(self) -> dict[str, Any]:
-        """Liefert Gerätestatus."""
-        response = self._openapi.get(f"/v1.0/iot-03/devices/{self.device_id}/status")
+    async def get_status(self) -> dict[str, Any]:
+        """Liefert GerÃ¤testatus."""
+        response = await asyncio.to_thread(
+            self._openapi.get, f"/v1.0/iot-03/devices/{self.device_id}/status"
+        )
         if response.get("success"):
             return {item["code"]: item["value"] for item in response.get("result", [])}
-        raise Exception(f"Fehler beim Abrufen des Gerätestatus: {response}")
+        raise Exception(f"Fehler beim Abrufen des GerÃ¤testatus: {response}")
 
-    def send_command(self, code: str, value: Any) -> bool:
-        """Sendet einen Steuerbefehl an das Gerät."""
+    async def send_command(self, code: str, value: Any) -> bool:
+        """Sendet einen Steuerbefehl an das GerÃ¤t."""
         commands = {"commands": [{"code": code, "value": value}]}
-        response = self._openapi.post(f"/v1.0/iot-03/devices/{self.device_id}/commands", commands)
+        response = await asyncio.to_thread(
+            self._openapi.post, f"/v1.0/iot-03/devices/{self.device_id}/commands", commands
+        )
         success = response.get("success", False)
         if not success:
             _LOGGER.warning("Senden des Befehls %s = %s fehlgeschlagen: %s", code, value, response)
@@ -57,7 +62,7 @@ class TuyaDeviceApi:
 
 
 class DabbssonCoordinator(DataUpdateCoordinator):
-    """Koordiniert Updates für den Wechselrichter."""
+    """Koordiniert Updates fÃ¼r den Wechselrichter."""
 
     def __init__(self, hass: HomeAssistant, api: TuyaDeviceApi, name: str):
         """Initialisierung."""
@@ -72,6 +77,6 @@ class DabbssonCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> dict[str, Any]:
         """Abfrage von Daten bei Tuya."""
         try:
-            return await asyncio.to_thread(self.api.get_status)
+            return await self.api.get_status()
         except Exception as err:
             raise UpdateFailed(f"Fehler beim Tuya-Datenabruf: {err}") from err
