@@ -1,44 +1,62 @@
-from homeassistant.components.sensor import SensorEntity
-from .api import TuyaCloudAPI
-from .const import DOMAIN
+from __future__ import annotations
+
+import logging
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
+from homeassistant.const import (
+    UnitOfEnergy,
+    UnitOfElectricPotential,
+    UnitOfElectricCurrent,
+    UnitOfTemperature,
+    UnitOfPower,
+    UnitOfTime,
+    PERCENTAGE,
+)
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .const import DOMAIN, DATA_COORDINATOR
 from .dps_metadata import DPS_METADATA
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    client_id = config_entry.data["client_id"]
-    client_secret = config_entry.data["client_secret"]
-    device_id = config_entry.data["device_id"]
+_LOGGER = logging.getLogger(__name__)
 
-    api = TuyaCloudAPI(client_id, client_secret)
-    data = await api.get_device_properties(device_id)
+UNIT_MAP = {
+    "kW·h": UnitOfEnergy.KILO_WATT_HOUR,
+    "W": UnitOfPower.WATT,
+    "V": UnitOfElectricPotential.VOLT,
+    "A": UnitOfElectricCurrent.AMPERE,
+    "℃": UnitOfTemperature.CELSIUS,
+    "%": PERCENTAGE,
+    "s": UnitOfTime.SECONDS,
+    "Kg": "kg",
+    "pcs": "pcs"
+}
 
-    sensors = [
-        DabbssonSensor(dp, api, device_id)
-        for dp in data
-        if dp["code"] in DPS_METADATA
-        and DPS_METADATA[dp["code"]]["type"] == "value"
-        and not DPS_METADATA[dp["code"]].get("writable")
-    ]
-    async_add_entities(sensors, True)
 
-class DabbssonSensor(SensorEntity):
-    def __init__(self, dp, api, device_id):
-        meta = DPS_METADATA.get(dp["code"], {})
-        self._attr_name = meta.get("name", dp.get("code"))
-        self._attr_unique_id = f"dbs600m_{dp.get('dp_id')}"
-        self._dp_id = dp.get("dp_id")
-        self._code = dp.get("code")
-        self._unit = meta.get("unit", "")
-        self._description = meta.get("description", "")
-        self._value = dp.get("value")
-        self._api = api
-        self._device_id = device_id
+async def async_setup_entry(hass, entry, async_add_entities):
+    """Richte Sensors für dabbsson_dbs600m ein."""
+    coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
+    entities = []
+
+    for dps_code, meta in DPS_METADATA.items():
+        if meta["type"] in ("value", "string") and not meta.get("writable", False):
+            entities.append(DabbssonSensor(coordinator, dps_code, meta))
+
+    async_add_entities(entities)
+
+
+class DabbssonSensor(CoordinatorEntity, SensorEntity):
+    """Repräsentiert einen readonly Sensor vom Wechselrichter."""
+
+    def __init__(self, coordinator, dps_code: str, meta: dict):
+        super().__init__(coordinator)
+        self._attr_name = meta["name"]
+        self._attr_unique_id = f"{coordinator.api.device_id}_{dps_code}"
+        self._dps_code = dps_code
+        self._meta = meta
+
+        unit = meta.get("unit")
+        self._attr_native_unit_of_measurement = UNIT_MAP.get(unit, unit)
 
     @property
     def native_value(self):
-        return self._value
-
-    def update(self):
-        properties = self._api.get_device_properties(self._device_id)
-        for dp in properties:
-            if dp.get("dp_id") == self._dp_id:
-                self._value = dp.get("value")
+        """Liefert den aktuellen Wert."""
+        return self.coordinator.data.get(self._dps_code)
