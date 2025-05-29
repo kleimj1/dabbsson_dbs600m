@@ -1,44 +1,51 @@
+from __future__ import annotations
+
+import logging
 from homeassistant.components.switch import SwitchEntity
-from .api import TuyaCloudAPI
-from .const import DOMAIN
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .const import DOMAIN, DATA_COORDINATOR, DATA_DEVICE
 from .dps_metadata import DPS_METADATA
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    client_id = config_entry.data["client_id"]
-    client_secret = config_entry.data["client_secret"]
-    device_id = config_entry.data["device_id"]
+_LOGGER = logging.getLogger(__name__)
 
-    api = TuyaCloudAPI(client_id, client_secret)
-    data = await api.get_device_properties(device_id)
 
-    switches = [
-        DabbssonSwitch(dp, api, device_id)
-        for dp in data
-        if dp["code"] in DPS_METADATA
-        and DPS_METADATA[dp["code"]]["type"] == "bool"
-        and DPS_METADATA[dp["code"]].get("writable")
-    ]
-    async_add_entities(switches, True)
+async def async_setup_entry(hass, entry, async_add_entities):
+    """Richte schaltbare Entitäten für den Wechselrichter ein."""
+    coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
+    api = hass.data[DOMAIN][entry.entry_id][DATA_DEVICE]
 
-class DabbssonSwitch(SwitchEntity):
-    def __init__(self, dp, api, device_id):
-        self._device_id = device_id
-        self._api = api
-        self._code = dp.get("code")
-        self._value = dp.get("value")
-        self._attr_name = DPS_METADATA[self._code].get("name", self._code)
-        self._attr_unique_id = f"dbs600m_{dp.get('dp_id')}"
+    entities = []
+
+    for dps_code, meta in DPS_METADATA.items():
+        if meta["type"] == "bool" and meta.get("writable", False):
+            entities.append(DabbssonSwitch(coordinator, api, dps_code, meta))
+
+    async_add_entities(entities)
+
+
+class DabbssonSwitch(CoordinatorEntity, SwitchEntity):
+    """Ein schaltbarer boolescher Wert aus dem Wechselrichter."""
+
+    def __init__(self, coordinator, api, dps_code: str, meta: dict):
+        super().__init__(coordinator)
+        self.api = api
+        self._dps_code = dps_code
+        self._meta = meta
+        self._attr_name = meta["name"]
+        self._attr_unique_id = f"{api.device_id}_{dps_code}"
 
     @property
-    def is_on(self):
-        return self._value is True
+    def is_on(self) -> bool:
+        """Gibt an, ob der Schalter eingeschaltet ist."""
+        return bool(self.coordinator.data.get(self._dps_code))
 
-    def turn_on(self, **kwargs):
-        success = self._api.set_device_property(self._device_id, self._code, True)
-        if success:
-            self._value = True
+    async def async_turn_on(self, **kwargs):
+        """Aktiviere den Schalter."""
+        if self.api.send_command(self._dps_code, True):
+            await self.coordinator.async_request_refresh()
 
-    def turn_off(self, **kwargs):
-        success = self._api.set_device_property(self._device_id, self._code, False)
-        if success:
-            self._value = False
+    async def async_turn_off(self, **kwargs):
+        """Deaktiviere den Schalter."""
+        if self.api.send_command(self._dps_code, False):
+            await self.coordinator.async_request_refresh()
