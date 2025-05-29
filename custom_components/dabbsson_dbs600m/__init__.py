@@ -14,7 +14,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry.data["device_id"],
         entry.data["api_endpoint"],
     )
-    api.connect()
+    await api.connect()  # <--- Wichtig: await, da async Methode
 
     coordinator = DabbssonCoordinator(hass, api, entry.data["name"])
     await coordinator.async_config_entry_first_refresh()
