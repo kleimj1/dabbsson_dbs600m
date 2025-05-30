@@ -41,5 +41,8 @@ class DabbssonNumber(CoordinatorEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float):
         code = self._meta.get("code", self._dps_code)
+        if not self.api.is_online:
+            _LOGGER.warning("⚠️ Gerät offline – setze %s nicht auf %s", code, value)
+            return
         if await self.api.send_command(code, value):
             await self.coordinator.async_request_refresh()
