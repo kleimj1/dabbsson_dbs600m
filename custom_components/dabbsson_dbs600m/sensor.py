@@ -55,6 +55,22 @@ class DabbssonSensor(CoordinatorEntity, SensorEntity):
 
         unit = meta.get("unit")
         self._attr_native_unit_of_measurement = UNIT_MAP.get(unit, unit)
+        self._attr_device_class = self._guess_device_class(self._attr_native_unit_of_measurement)
+
+    def _guess_device_class(self, unit: str | None):
+        if unit == UnitOfTemperature.CELSIUS:
+            return SensorDeviceClass.TEMPERATURE
+        elif unit == UnitOfElectricPotential.VOLT:
+            return SensorDeviceClass.VOLTAGE
+        elif unit == UnitOfElectricCurrent.AMPERE:
+            return SensorDeviceClass.CURRENT
+        elif unit == UnitOfPower.WATT:
+            return SensorDeviceClass.POWER
+        elif unit == UnitOfEnergy.KILO_WATT_HOUR:
+            return SensorDeviceClass.ENERGY
+        elif unit == PERCENTAGE:
+            return SensorDeviceClass.BATTERY
+        return None
 
     @property
     def native_value(self):
