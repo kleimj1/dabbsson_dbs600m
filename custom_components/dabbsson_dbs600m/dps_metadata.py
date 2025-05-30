@@ -1,76 +1,80 @@
 DPS_METADATA = {
-    "1": {
-        "name": "Gesamtverbrauch (kWh)",
+    "101": {
+        "name": "PV-Eingangsleistung",
         "type": "value",
         "writable": False,
-        "description": "Mapped to 'forward_energy_total'",
-        "code": "forward_energy_total",
-        "unit": "kW·h"
+        "description": "PV-Leistung",
+        "unit": "W",
+        "code": "forward_energy_total"
+    },
+    "103": {
+        "name": "PV-Spannung",
+        "type": "value",
+        "writable": False,
+        "description": "PV-Spannung",
+        "unit": "V",
+        "code": "pv_volt"
+    },
+    "104": {
+        "name": "Inverter-Temperatur",
+        "type": "value",
+        "writable": False,
+        "description": "Temperatur",
+        "unit": "℃",
+        "code": "temperature"
     },
     "105": {
         "name": "Zähler zurücksetzen",
         "type": "bool",
         "writable": True,
-        "description": "Mapped to 'clear_energy'",
+        "description": "Zähler zurücksetzen",
         "code": "clear_energy"
     },
     "108": {
         "name": "Wechselrichter EIN/AUS",
         "type": "bool",
         "writable": True,
-        "description": "Mapped to 'switch'",
+        "description": "Schaltet den Wechselrichter",
         "code": "switch"
+    },
+    "109": {
+        "name": "AC-Ausgangsleistung",
+        "type": "value",
+        "writable": False,
+        "description": "AC-Leistung",
+        "unit": "W",
+        "code": "out_power"
     },
     "110": {
         "name": "Leistungsbegrenzung",
         "type": "value",
         "writable": True,
-        "description": "Mapped to 'power_adjustment'",
-        "code": "power_adjustment",
-        "unit": "%"
+        "description": "Limit in Prozent",
+        "unit": "%",
+        "code": "power_adjustment"
     },
-    "119": {
-        "name": "Anti-Feed-In",
-        "type": "bool",
-        "writable": True,
-        "description": "Mapped to 'anti_reflux_flag'",
-        "code": "anti_reflux_flag"
+    "111": {
+        "name": "PV-Strom",
+        "type": "value",
+        "writable": False,
+        "description": "PV-Strom",
+        "unit": "A",
+        "code": "pv_current"
     },
-    "122": {
-        "name": "Knoten hinzufügen",
-        "type": "bool",
-        "writable": True,
-        "description": "Mapped to 'add_node'",
-        "code": "add_node"
-    },
-    "125": {
-        "name": "Alle Knoten löschen",
-        "type": "bool",
-        "writable": True,
-        "description": "Mapped to 'delete_all_nodes'",
-        "code": "delete_all_nodes"
+    "120": {
+        "name": "Batterie-Kapazität",
+        "type": "value",
+        "writable": False,
+        "description": "Batterie-SoC",
+        "unit": "%",
+        "code": "bat_capacity"
     },
     "126": {
         "name": "Arbeitsmodus",
         "type": "enum",
         "writable": True,
-        "description": "Mapped to 'workmode'",
-        "code": "workmode",
-        "options": ["0", "1"]
-    },
-    "128": {
-        "name": "Schnellberichtsmodus",
-        "type": "bool",
-        "writable": True,
-        "description": "Mapped to 'up_flag'",
-        "code": "up_flag"
-    },
-    "146": {
-        "name": "INV-Modus setzen",
-        "type": "value",
-        "writable": True,
-        "description": "Mapped to 'inv_mode_set'",
-        "code": "inv_mode_set",
-        "unit": ""
+        "description": "Moduswahl",
+        "options": ["0", "1"],
+        "code": "workmode"
     }
 }
