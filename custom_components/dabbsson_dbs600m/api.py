@@ -22,12 +22,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class TuyaDeviceApi:
-    """API Wrapper fÃ¼r Tuya Wechselrichter."""
+    """API Wrapper für Tuya Wechselrichter."""
 
     def __init__(self, client_id: str, client_secret: str, device_id: str, api_endpoint: str):
         self.device_id = device_id
         self._openapi = TuyaOpenAPI(api_endpoint, client_id, client_secret)
         self._connected = False
+        self.is_online = True  # Standardmäßig als online behandeln
 
     async def connect(self) -> bool:
         """Verbindet zur Tuya Cloud API (async-safe)."""
@@ -41,16 +42,23 @@ class TuyaDeviceApi:
             return False
 
     async def get_status(self) -> dict[str, Any]:
-        """Liefert GerÃ¤testatus."""
+        """Liefert Gerätestatus."""
+        # Online-Status parallel mitlesen
+        await self._update_online_status()
+
         response = await asyncio.to_thread(
             self._openapi.get, f"/v1.0/iot-03/devices/{self.device_id}/status"
         )
         if response.get("success"):
             return {item["code"]: item["value"] for item in response.get("result", [])}
-        raise Exception(f"Fehler beim Abrufen des GerÃ¤testatus: {response}")
+        raise Exception(f"Fehler beim Abrufen des Gerätestatus: {response}")
 
     async def send_command(self, code: str, value: Any) -> bool:
-        """Sendet einen Steuerbefehl an das GerÃ¤t."""
+        """Sendet einen Steuerbefehl an das Gerät."""
+        if not self.is_online:
+            _LOGGER.warning("⚠️ Gerät ist offline – Befehle werden nicht gesendet: %s = %s", code, value)
+            return False
+
         commands = {"commands": [{"code": code, "value": value}]}
         response = await asyncio.to_thread(
             self._openapi.post, f"/v1.0/iot-03/devices/{self.device_id}/commands", commands
@@ -60,23 +68,15 @@ class TuyaDeviceApi:
             _LOGGER.warning("Senden des Befehls %s = %s fehlgeschlagen: %s", code, value, response)
         return success
 
-
-class DabbssonCoordinator(DataUpdateCoordinator):
-    """Koordiniert Updates fÃ¼r den Wechselrichter."""
-
-    def __init__(self, hass: HomeAssistant, api: TuyaDeviceApi, name: str):
-        """Initialisierung."""
-        super().__init__(
-            hass,
-            _LOGGER,
-            name=name,
-            update_interval=timedelta(seconds=30),
-        )
-        self.api = api
-
-    async def _async_update_data(self) -> dict[str, Any]:
-        """Abfrage von Daten bei Tuya."""
+    async def _update_online_status(self):
+        """Fragt den Online-Status des Geräts ab und speichert ihn."""
         try:
-            return await self.api.get_status()
+            response = await asyncio.to_thread(
+                self._openapi.get, f"/v2.0/cloud/thing/batch?device_ids={self.device_id}"
+            )
+            info = response.get("result", [{}])[0]
+            self.is_online = info.get("is_online", False)
+            _LOGGER.debug("📶 Gerätestatus (online): %s", self.is_online)
         except Exception as err:
-            raise UpdateFailed(f"Fehler beim Tuya-Datenabruf: {err}") from err
+            _LOGGER.warning("Konnte Online-Status nicht abrufen: %s", err)
+            self.is_online = True  # Fallback: nicht blockieren
