@@ -42,10 +42,10 @@ class DabbssonSwitch(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs):
         """Aktiviere den Schalter."""
-        if self.api.send_command(self._dps_code, True):
+        if await self.api.send_command(self._dps_code, True):
             await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs):
         """Deaktiviere den Schalter."""
-        if self.api.send_command(self._dps_code, False):
+        if await self.api.send_command(self._dps_code, False):
             await self.coordinator.async_request_refresh()
