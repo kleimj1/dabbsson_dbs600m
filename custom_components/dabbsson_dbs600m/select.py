@@ -38,5 +38,8 @@ class DabbssonSelect(CoordinatorEntity, SelectEntity):
 
     async def async_select_option(self, option: str):
         code = self._meta.get("code", self._dps_code)
+        if not self.api.is_online:
+            _LOGGER.warning("⚠️ Gerät offline – setze Auswahl %s nicht auf %s", code, option)
+            return
         if await self.api.send_command(code, option):
             await self.coordinator.async_request_refresh()
