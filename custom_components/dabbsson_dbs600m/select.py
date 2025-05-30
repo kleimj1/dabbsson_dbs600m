@@ -44,5 +44,5 @@ class DabbssonSelect(CoordinatorEntity, SelectEntity):
 
     async def async_select_option(self, option: str):
         """Setzt eine neue Option."""
-        if self.api.send_command(self._dps_code, option):
+        if await self.api.send_command(self._dps_code, option):
             await self.coordinator.async_request_refresh()
