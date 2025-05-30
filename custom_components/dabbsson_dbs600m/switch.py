@@ -11,10 +11,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Richte schaltbare Entitäten für den Wechselrichter ein."""
     coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
     api = hass.data[DOMAIN][entry.entry_id][DATA_DEVICE]
-
     entities = []
 
     for dps_code, meta in DPS_METADATA.items():
@@ -25,8 +23,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class DabbssonSwitch(CoordinatorEntity, SwitchEntity):
-    """Ein schaltbarer boolescher Wert aus dem Wechselrichter."""
-
     def __init__(self, coordinator, api, dps_code: str, meta: dict):
         super().__init__(coordinator)
         self.api = api
@@ -37,15 +33,14 @@ class DabbssonSwitch(CoordinatorEntity, SwitchEntity):
 
     @property
     def is_on(self) -> bool:
-        """Gibt an, ob der Schalter eingeschaltet ist."""
         return bool(self.coordinator.data.get(self._dps_code))
 
     async def async_turn_on(self, **kwargs):
-        """Aktiviere den Schalter."""
-        if await self.api.send_command(self._dps_code, True):
+        code = self._meta.get("code", self._dps_code)
+        if await self.api.send_command(code, True):
             await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs):
-        """Deaktiviere den Schalter."""
-        if await self.api.send_command(self._dps_code, False):
+        code = self._meta.get("code", self._dps_code)
+        if await self.api.send_command(code, False):
             await self.coordinator.async_request_refresh()
