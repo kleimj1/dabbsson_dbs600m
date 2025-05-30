@@ -93,7 +93,7 @@ class DabbssonDBS600MOptionsFlowHandler(config_entries.OptionsFlow):
     """Optionen für die Integration – später erweiterbar."""
 
     def __init__(self, entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = entry
+        
 
     async def async_step_init(self, user_input=None) -> FlowResult:
         return self.async_create_entry(title="", data={})
