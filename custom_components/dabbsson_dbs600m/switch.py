@@ -37,10 +37,16 @@ class DabbssonSwitch(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs):
         code = self._meta.get("code", self._dps_code)
+        if not self.api.is_online:
+            _LOGGER.warning("⚠️ Gerät offline – schalte %s nicht EIN", code)
+            return
         if await self.api.send_command(code, True):
             await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs):
         code = self._meta.get("code", self._dps_code)
+        if not self.api.is_online:
+            _LOGGER.warning("⚠️ Gerät offline – schalte %s nicht AUS", code)
+            return
         if await self.api.send_command(code, False):
             await self.coordinator.async_request_refresh()
