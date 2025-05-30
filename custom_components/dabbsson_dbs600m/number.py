@@ -11,10 +11,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Setze alle steuerbaren Zahlenwerte als NumberEntity."""
     coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
     api = hass.data[DOMAIN][entry.entry_id][DATA_DEVICE]
-
     entities = []
 
     for dps_code, meta in DPS_METADATA.items():
@@ -25,29 +23,23 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class DabbssonNumber(CoordinatorEntity, NumberEntity):
-    """Repräsentiert einen steuerbaren Zahlenwert des Wechselrichters."""
-
     def __init__(self, coordinator, api, dps_code: str, meta: dict):
         super().__init__(coordinator)
         self.api = api
         self._dps_code = dps_code
         self._meta = meta
-
         self._attr_name = meta["name"]
         self._attr_unique_id = f"{api.device_id}_{dps_code}"
         self._attr_native_unit_of_measurement = meta.get("unit")
-
-        # Optional: Setze sinnvolle Defaultwerte, falls keine Limits bekannt
         self._attr_native_min_value = 0
         self._attr_native_max_value = 100
         self._attr_native_step = 1
 
     @property
     def native_value(self) -> float:
-        """Aktueller Wert der Entität."""
         return self.coordinator.data.get(self._dps_code)
 
     async def async_set_native_value(self, value: float):
-        """Setze einen neuen Wert."""
-        if await self.api.send_command(self._dps_code, value):
+        code = self._meta.get("code", self._dps_code)
+        if await self.api.send_command(code, value):
             await self.coordinator.async_request_refresh()
