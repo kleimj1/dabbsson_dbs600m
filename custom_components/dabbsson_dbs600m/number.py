@@ -49,5 +49,5 @@ class DabbssonNumber(CoordinatorEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float):
         """Setze einen neuen Wert."""
-        if self.api.send_command(self._dps_code, value):
+        if await self.api.send_command(self._dps_code, value):
             await self.coordinator.async_request_refresh()
