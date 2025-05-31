@@ -28,55 +28,66 @@ class TuyaDeviceApi:
         self.device_id = device_id
         self._openapi = TuyaOpenAPI(api_endpoint, client_id, client_secret)
         self._connected = False
-        self.is_online = True  # Standardmäßig als online behandeln
+        self.is_online = True
 
     async def connect(self) -> bool:
         """Verbindet zur Tuya Cloud API (async-safe)."""
         try:
             await asyncio.to_thread(self._openapi.connect)
             self._connected = True
-            _LOGGER.debug("Verbindung zur Tuya Cloud erfolgreich.")
+            _LOGGER.info("✅ Verbindung zur Tuya Cloud erfolgreich hergestellt.")
             return True
         except Exception as err:
-            _LOGGER.warning("Fehler bei Tuya-API-Verbindung: %s", err)
+            _LOGGER.error("❌ Fehler bei Tuya-API-Verbindung: %s", err)
             return False
 
     async def get_status(self) -> dict[str, Any]:
-        """Liefert Gerätestatus."""
-        # Online-Status parallel mitlesen
+        """Liefert Gerätestatus und prüft Online-Verfügbarkeit."""
         await self._update_online_status()
 
-        response = await asyncio.to_thread(
-            self._openapi.get, f"/v1.0/iot-03/devices/{self.device_id}/status"
-        )
-        if response.get("success"):
-            return {item["code"]: item["value"] for item in response.get("result", [])}
-        raise Exception(f"Fehler beim Abrufen des Gerätestatus: {response}")
+        try:
+            response = await asyncio.to_thread(
+                self._openapi.get, f"/v1.0/iot-03/devices/{self.device_id}/status"
+            )
+            if response.get("success"):
+                status = {item["code"]: item["value"] for item in response.get("result", [])}
+                _LOGGER.debug("📟 Gerätestatus erhalten: %s", status)
+                return status
+            raise Exception(f"Tuya antwortete mit Fehler: {response}")
+        except Exception as err:
+            _LOGGER.error("❌ Fehler beim Abrufen des Gerätestatus: %s", err)
+            raise
 
     async def send_command(self, code: str, value: Any) -> bool:
         """Sendet einen Steuerbefehl an das Gerät."""
         if not self.is_online:
-            _LOGGER.warning("⚠️ Gerät ist offline – Befehle werden nicht gesendet: %s = %s", code, value)
+            _LOGGER.warning("⚠️ Gerät offline – Befehl nicht gesendet (%s = %s)", code, value)
             return False
 
         commands = {"commands": [{"code": code, "value": value}]}
-        response = await asyncio.to_thread(
-            self._openapi.post, f"/v1.0/iot-03/devices/{self.device_id}/commands", commands
-        )
-        success = response.get("success", False)
-        if not success:
-            _LOGGER.warning("Senden des Befehls %s = %s fehlgeschlagen: %s", code, value, response)
-        return success
+        try:
+            response = await asyncio.to_thread(
+                self._openapi.post, f"/v1.0/iot-03/devices/{self.device_id}/commands", commands
+            )
+            success = response.get("success", False)
+            if success:
+                _LOGGER.info("✅ Befehl gesendet: %s = %s", code, value)
+            else:
+                _LOGGER.warning("❌ Senden des Befehls %s = %s fehlgeschlagen: %s", code, value, response)
+            return success
+        except Exception as err:
+            _LOGGER.error("❌ Ausnahme beim Senden des Befehls (%s = %s): %s", code, value, err)
+            return False
 
     async def _update_online_status(self):
-        """Fragt den Online-Status des Geräts ab und speichert ihn."""
+        """Fragt den Online-Status des Geräts ab und aktualisiert ihn."""
         try:
             response = await asyncio.to_thread(
                 self._openapi.get, f"/v2.0/cloud/thing/batch?device_ids={self.device_id}"
             )
-            info = response.get("result", [{}])[0]
-            self.is_online = info.get("is_online", False)
-            _LOGGER.debug("📶 Gerätestatus (online): %s", self.is_online)
+            result = response.get("result", [{}])[0]
+            self.is_online = result.get("is_online", False)
+            _LOGGER.info("📶 Online-Status des Geräts: %s", "Online" if self.is_online else "Offline")
         except Exception as err:
-            _LOGGER.warning("Konnte Online-Status nicht abrufen: %s", err)
-            self.is_online = True  # Fallback: nicht blockieren
+            _LOGGER.warning("⚠️ Konnte Online-Status nicht ermitteln: %s", err)
+            self.is_online = True  # Fallback, um Blockierung zu vermeiden
