@@ -3,15 +3,23 @@ DPS_METADATA = {
         "name": "PV-Eingangsleistung",
         "type": "value",
         "writable": False,
-        "description": "PV-Leistung",
+        "description": "Photovoltaik-Eingangsleistung, Genauigkeit 0,01W",
         "unit": "W",
-        "code": "forward_energy_total"
+        "code": "pv_power"
+    },
+    "102": {
+        "name": "CO2-Einsparung",
+        "type": "value",
+        "writable": False,
+        "description": "Genauigkeit 0,01Kg",
+        "unit": "Kg",
+        "code": "emission"
     },
     "103": {
         "name": "PV-Spannung",
         "type": "value",
         "writable": False,
-        "description": "PV-Spannung",
+        "description": "Präzision 0,01 Volt",
         "unit": "V",
         "code": "pv_volt"
     },
@@ -19,7 +27,7 @@ DPS_METADATA = {
         "name": "Inverter-Temperatur",
         "type": "value",
         "writable": False,
-        "description": "Temperatur",
+        "description": "Genauigkeit: 0,1℃",
         "unit": "℃",
         "code": "temperature"
     },
@@ -27,21 +35,37 @@ DPS_METADATA = {
         "name": "Zähler zurücksetzen",
         "type": "bool",
         "writable": True,
-        "description": "Zähler zurücksetzen",
+        "description": "Setzt die Energiezähler auf Null zurück",
         "code": "clear_energy"
+    },
+    "106": {
+        "name": "AC-Strom",
+        "type": "value",
+        "writable": False,
+        "description": "AC-Ausgangsstrom (Genauigkeit: 0.01 A)",
+        "unit": "A",
+        "code": "ac_current"
+    },
+    "107": {
+        "name": "Tagesverbrauch",
+        "type": "value",
+        "writable": False,
+        "description": "Tägliche erzeugte Energie (Genauigkeit 0.01 kWh)",
+        "unit": "kW·h",
+        "code": "day_energy"
     },
     "108": {
         "name": "Wechselrichter EIN/AUS",
         "type": "bool",
         "writable": True,
-        "description": "Schaltet den Wechselrichter",
+        "description": "Schaltet den Wechselrichter ein oder aus",
         "code": "switch"
     },
     "109": {
         "name": "AC-Ausgangsleistung",
         "type": "value",
         "writable": False,
-        "description": "AC-Leistung",
+        "description": "AC-Ausgangsleistung, Genauigkeit 0.01W",
         "unit": "W",
         "code": "out_power"
     },
@@ -49,7 +73,7 @@ DPS_METADATA = {
         "name": "Leistungsbegrenzung",
         "type": "value",
         "writable": True,
-        "description": "Limit in Prozent",
+        "description": "Prozentuale Begrenzung der Ausgangsleistung",
         "unit": "%",
         "code": "power_adjustment"
     },
@@ -57,24 +81,103 @@ DPS_METADATA = {
         "name": "PV-Strom",
         "type": "value",
         "writable": False,
-        "description": "PV-Strom",
+        "description": "Strom vom PV-Modul (Genauigkeit 0.01 A)",
         "unit": "A",
         "code": "pv_current"
+    },
+    "112": {
+        "name": "Virtuell gepflanzte Bäume",
+        "type": "value",
+        "writable": False,
+        "description": "Kumulierter Baumbestand",
+        "unit": "pcs",
+        "code": "plant"
+    },
+    "113": {
+        "name": "Gesamtenergieerzeugung",
+        "type": "value",
+        "writable": False,
+        "description": "Gesamt erzeugte Energie (Genauigkeit 0.01 kWh)",
+        "unit": "kW·h",
+        "code": "energy"
+    },
+    "114": {
+        "name": "AC-Spannung",
+        "type": "value",
+        "writable": False,
+        "description": "AC-Ausgangsspannung",
+        "unit": "V",
+        "code": "ac_volt"
+    },
+    "118": {
+        "name": "Energiequelle",
+        "type": "enum",
+        "writable": False,
+        "description": "0: unbekannt, 1: PV, 2: Batterie",
+        "options": ["0", "1", "2"],
+        "code": "power_src"
+    },
+    "119": {
+        "name": "Anti-Feed-In-Schalter",
+        "type": "bool",
+        "writable": True,
+        "description": "Aktiviert oder deaktiviert die Einspeisevermeidung",
+        "code": "anti_reflux_flag"
     },
     "120": {
         "name": "Batterie-Kapazität",
         "type": "value",
         "writable": False,
-        "description": "Batterie-SoC",
+        "description": "Ladezustand der Batterie in Prozent",
         "unit": "%",
         "code": "bat_capacity"
+    },
+    "121": {
+        "name": "Gesamtleistung der Steckdosen",
+        "type": "value",
+        "writable": False,
+        "description": "Summierte Leistung aller Steckdosen",
+        "unit": "W",
+        "code": "total_power"
+    },
+    "123": {
+        "name": "PV lädt Batterie",
+        "type": "enum",
+        "writable": False,
+        "description": "Ob PV aktuell die Batterie lädt (0/1)",
+        "options": ["0", "1"],
+        "code": "pv_to_bat"
+    },
+    "124": {
+        "name": "Gepaarte Knoten",
+        "type": "string",
+        "writable": False,
+        "description": "Informationen zu gepaarten Knoten",
+        "code": "node_paired"
     },
     "126": {
         "name": "Arbeitsmodus",
         "type": "enum",
         "writable": True,
-        "description": "Moduswahl",
+        "description": "0: Energiesparmodus, 1: Batterielademodus",
         "options": ["0", "1"],
         "code": "workmode"
-    }
+    },
+    "127": {
+        "name": "Nennleistung (W)",
+        "type": "value",
+        "writable": False,
+        "description": "Nennleistung des Mikro-Wechselrichters",
+        "unit": "W",
+        "code": "rated_power"
+    },
+    "128": {"name": "Schnellberichtsmodus", "type": "bool", "writable": true, "description": "Aktiviert die sofortige Berichterstattung von Statusänderungen", "code": "up_flag"},
+    "129": {"name": "Add Node", "type": "bool", "writable": false, "description": "add_node", "code": "add_node"},
+    "130": {"name": "Pv To Bat", "type": "enum", "writable": false, "description": "pv_to_bat", "code": "pv_to_bat"},
+    "131": {"name": "Node Paired", "type": "string", "writable": false, "description": "node_paired", "code": "node_paired"},
+    "132": {"name": "Delete All Nodes", "type": "bool", "writable": false, "description": "delete_all_nodes", "code": "delete_all_nodes"},
+    "133": {"name": "Workmode", "type": "enum", "writable": false, "description": "workmode", "code": "workmode"},
+    "134": {"name": "Rated Power", "type": "value", "writable": false, "description": "rated_power", "code": "rated_power", "unit": "W"},
+    "135": {"name": "Up Flag", "type": "bool", "writable": false, "description": "up_flag", "code": "up_flag"},
+    "146": {"name": "INV-Modus setzen", "type": "value", "writable": true, "description": "Einstellung für INV-Betriebsmodus", "unit": "", "code": "inv_mode_set"},
 }
