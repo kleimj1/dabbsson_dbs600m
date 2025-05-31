@@ -33,7 +33,7 @@ UNIT_MAP = {
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Richte Sensors für dabbsson_dbs600m ein."""
+    """Initialisiere Sensoren für dabbsson_dbs600m."""
     coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
     api = hass.data[DOMAIN][entry.entry_id][DATA_DEVICE]
     entities = []
@@ -42,21 +42,22 @@ async def async_setup_entry(hass, entry, async_add_entities):
         if meta["type"] in ("value", "string") and not meta.get("writable", False):
             entities.append(DabbssonSensor(coordinator, dps_code, meta))
 
-    # Online-Status als zusätzliche Entität hinzufügen
+    # Füge zusätzlichen Online-Status-Sensor hinzu
     entities.append(DabbssonOnlineStatus(coordinator, api))
 
     async_add_entities(entities)
 
 
 class DabbssonSensor(CoordinatorEntity, SensorEntity):
-    """Repräsentiert einen readonly Sensor vom Wechselrichter."""
+    """Sensor für einen schreibgeschützten DPS-Wert des Wechselrichters."""
 
     def __init__(self, coordinator, dps_code: str, meta: dict):
         super().__init__(coordinator)
-        self._attr_name = meta["name"]
-        self._attr_unique_id = f"{coordinator.api.device_id}_{dps_code}"
         self._dps_code = dps_code
         self._meta = meta
+
+        self._attr_name = meta["name"]
+        self._attr_unique_id = f"{coordinator.api.device_id}_{dps_code}"
 
         unit = meta.get("unit")
         self._attr_native_unit_of_measurement = UNIT_MAP.get(unit, unit)
@@ -79,12 +80,15 @@ class DabbssonSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def native_value(self):
-        """Liefert den aktuellen Wert."""
-        return self.coordinator.data.get(self._dps_code)
+        """Gibt den aktuellen Sensorwert zurück."""
+        value = self.coordinator.data.get(self._dps_code)
+        if value is None:
+            _LOGGER.debug("ℹ️ Kein Wert für Sensor %s gefunden", self._dps_code)
+        return value
 
 
 class DabbssonOnlineStatus(CoordinatorEntity, BinarySensorEntity):
-    """Repräsentiert den Online-Status des Geräts."""
+    """Sensor zur Anzeige des Online-Status des Geräts."""
 
     def __init__(self, coordinator, api):
         super().__init__(coordinator)
@@ -95,5 +99,5 @@ class DabbssonOnlineStatus(CoordinatorEntity, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool:
-        """Gibt an, ob das Gerät online ist."""
+        """True wenn Gerät online ist."""
         return self.api.is_online
