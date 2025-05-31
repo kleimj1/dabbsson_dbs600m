@@ -91,3 +91,22 @@ class TuyaDeviceApi:
         except Exception as err:
             _LOGGER.warning("⚠️ Konnte Online-Status nicht ermitteln: %s", err)
             self.is_online = True  # Fallback, um Blockierung zu vermeiden
+
+
+class DabbssonCoordinator(DataUpdateCoordinator):
+    """Koordiniert Updates für den Wechselrichter."""
+
+    def __init__(self, hass: HomeAssistant, api: TuyaDeviceApi, name: str):
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=name,
+            update_interval=timedelta(seconds=30),
+        )
+        self.api = api
+
+    async def _async_update_data(self) -> dict[str, Any]:
+        try:
+            return await self.api.get_status()
+        except Exception as err:
+            raise UpdateFailed(f"❌ Fehler beim Tuya-Datenabruf: {err}") from err
