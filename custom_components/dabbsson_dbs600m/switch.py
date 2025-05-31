@@ -11,6 +11,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
+    """Initialisiert Schalter für dabbsson_dbs600m."""
     coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
     api = hass.data[DOMAIN][entry.entry_id][DATA_DEVICE]
     entities = []
@@ -23,6 +24,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class DabbssonSwitch(CoordinatorEntity, SwitchEntity):
+    """Stellt einen schaltbaren boolschen Datenpunkt des Geräts dar."""
+
     def __init__(self, coordinator, api, dps_code: str, meta: dict):
         super().__init__(coordinator)
         self.api = api
@@ -33,20 +36,25 @@ class DabbssonSwitch(CoordinatorEntity, SwitchEntity):
 
     @property
     def is_on(self) -> bool:
+        """Gibt an, ob der Schalter aktiviert ist."""
         return bool(self.coordinator.data.get(self._dps_code))
 
     async def async_turn_on(self, **kwargs):
+        """Aktiviert den Schalter."""
         code = self._meta.get("code", self._dps_code)
         if not self.api.is_online:
-            _LOGGER.warning("⚠️ Gerät offline – schalte %s nicht EIN", code)
+            _LOGGER.warning("⚠️ Gerät offline – Schalter %s nicht eingeschaltet", code)
             return
         if await self.api.send_command(code, True):
+            _LOGGER.info("🔛 Schalter %s aktiviert", code)
             await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs):
+        """Deaktiviert den Schalter."""
         code = self._meta.get("code", self._dps_code)
         if not self.api.is_online:
-            _LOGGER.warning("⚠️ Gerät offline – schalte %s nicht AUS", code)
+            _LOGGER.warning("⚠️ Gerät offline – Schalter %s nicht ausgeschaltet", code)
             return
         if await self.api.send_command(code, False):
+            _LOGGER.info("🔴 Schalter %s deaktiviert", code)
             await self.coordinator.async_request_refresh()
