@@ -1,6 +1,7 @@
 """Konstanten für die Dabbsson DBS600M Integration."""
 
 DOMAIN = "dabbsson_dbs600m"
+PLATFORMS = ["sensor", "number", "select", "switch"]
 
 # Konfigurationsschlüssel
 CONF_CLIENT_ID = "client_id"
