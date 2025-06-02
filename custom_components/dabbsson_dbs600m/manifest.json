@@ -1,7 +1,7 @@
 {
   "domain": "dabbsson_dbs600m",
   "name": "Dabbsson DBS600M",
-  "version": "2.1.4",
+  "version": "2.1.5",
   "documentation": "https://github.com/kleimj1/dabbsson_dbs600m",
   "issue_tracker": "https://github.com/kleimj1/dabbsson_dbs600m/issues",
   "requirements": [
