@@ -5,7 +5,6 @@ from datetime import timedelta
 from typing import Any
 
 from tuya_connector import TuyaOpenAPI
-
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -23,37 +22,33 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class TuyaDeviceApi:
-    """API Wrapper für Tuya Wechselrichter mit Token-Caching."""
+    """API Wrapper für Tuya Wechselrichter mit optimiertem Token- & Statushandling."""
 
     def __init__(self, client_id: str, client_secret: str, device_id: str, api_endpoint: str):
         self.device_id = device_id
         self._openapi = TuyaOpenAPI(api_endpoint, client_id, client_secret)
         self._connected = False
         self.is_online = True
-        self._token_expiry = 0  # Millisekunden-Zeitstempel
+
+        self._last_online_check = 0
+        self._online_check_interval = 1800  # alle 30 Minuten
 
     async def connect(self) -> bool:
-        """Verbindet zur Tuya Cloud API mit Token-Caching."""
-        now = int(time.time() * 1000)
-        if self._connected and now < self._token_expiry:
-            _LOGGER.debug("🔁 Bestehende Tuya-Verbindung wird wiederverwendet.")
-            return True
-
-        try:
-            await asyncio.to_thread(self._openapi.connect)
-            self._connected = True
-            self._token_expiry = now + 3500 * 1000  # konservative 58 Minuten statt 1h
-            _LOGGER.info("✅ Neue Verbindung zur Tuya Cloud erfolgreich aufgebaut.")
-            return True
-        except Exception as err:
-            _LOGGER.error("❌ Fehler bei Tuya-API-Verbindung: %s", err)
-            self._connected = False
-            return False
+        """Initialer API-Connect. Kein reconnect bei jedem Aufruf."""
+        if not self._connected:
+            try:
+                await asyncio.to_thread(self._openapi.connect)
+                self._connected = True
+                _LOGGER.info("✅ Verbindung zur Tuya Cloud erfolgreich.")
+                return True
+            except Exception as err:
+                _LOGGER.error("❌ Fehler bei Tuya-API-Verbindung: %s", err)
+                return False
+        return True
 
     async def get_status(self) -> dict[str, Any]:
-        """Liefert Gerätestatus und prüft Online-Verfügbarkeit."""
-        await self.connect()
-        await self._update_online_status()
+        """Liefert Gerätestatus. Führt ggf. seltenen Online-Check durch."""
+        await self._maybe_update_online_status()
 
         try:
             response = await asyncio.to_thread(
@@ -63,16 +58,15 @@ class TuyaDeviceApi:
                 status = {item["code"]: item["value"] for item in response.get("result", [])}
                 _LOGGER.debug("📟 Gerätestatus erhalten: %s", status)
                 return status
-            raise Exception(f"Tuya antwortete mit Fehler: {response}")
+            raise Exception(f"Tuya Fehlerantwort: {response}")
         except Exception as err:
-            _LOGGER.error("❌ Fehler beim Abrufen des Gerätestatus: %s", err)
+            _LOGGER.error("❌ Fehler beim Statusabruf: %s", err)
             raise
 
     async def send_command(self, code: str, value: Any) -> bool:
-        """Sendet einen Steuerbefehl an das Gerät."""
-        await self.connect()
+        """Sendet einen Steuerbefehl, wenn Gerät online."""
         if not self.is_online:
-            _LOGGER.warning("⚠️ Gerät offline – Befehl nicht gesendet (%s = %s)", code, value)
+            _LOGGER.warning("⚠️ Gerät offline – Befehl verworfen (%s = %s)", code, value)
             return False
 
         commands = {"commands": [{"code": code, "value": value}]}
@@ -82,37 +76,42 @@ class TuyaDeviceApi:
             )
             success = response.get("success", False)
             if success:
-                _LOGGER.debug("✅ Befehl gesendet: %s = %s", code, value)
+                _LOGGER.info("✅ Befehl gesendet: %s = %s", code, value)
             else:
-                _LOGGER.warning("❌ Senden des Befehls %s = %s fehlgeschlagen: %s", code, value, response)
+                _LOGGER.warning("❌ Befehl fehlgeschlagen (%s = %s): %s", code, value, response)
             return success
         except Exception as err:
-            _LOGGER.error("❌ Ausnahme beim Senden des Befehls (%s = %s): %s", code, value, err)
+            _LOGGER.error("❌ Ausnahme beim Befehl (%s = %s): %s", code, value, err)
             return False
 
-    async def _update_online_status(self):
-        """Fragt den Online-Status des Geräts ab und aktualisiert ihn."""
+    async def _maybe_update_online_status(self):
+        """Führt Online-Check nur alle 30 Minuten durch."""
+        now = time.time()
+        if now - self._last_online_check < self._online_check_interval:
+            return
+
         try:
             response = await asyncio.to_thread(
                 self._openapi.get, f"/v2.0/cloud/thing/batch?device_ids={self.device_id}"
             )
             result = response.get("result", [{}])[0]
             self.is_online = result.get("is_online", False)
-            _LOGGER.debug("📶 Online-Status des Geräts: %s", "Online" if self.is_online else "Offline")
+            self._last_online_check = now
+            _LOGGER.info("📶 Gerätestatus: %s", "Online" if self.is_online else "Offline")
         except Exception as err:
-            _LOGGER.warning("⚠️ Konnte Online-Status nicht ermitteln: %s", err)
-            self.is_online = True
+            _LOGGER.warning("⚠️ Online-Status nicht abrufbar: %s", err)
+            self.is_online = True  # Fallback
 
 
 class DabbssonCoordinator(DataUpdateCoordinator):
-    """Koordiniert Updates für den Wechselrichter."""
+    """Koordiniert periodischen Datenabruf vom Wechselrichter."""
 
     def __init__(self, hass: HomeAssistant, api: TuyaDeviceApi, name: str):
         super().__init__(
             hass,
             _LOGGER,
             name=name,
-            update_interval=timedelta(minutes=5),  # statt 30 Sekunden
+            update_interval=timedelta(minutes=5),  # 🕒 Jetzt: nur alle 5 Minuten!
         )
         self.api = api
 
