@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import time
 from datetime import timedelta
 from typing import Any
 
@@ -22,27 +23,36 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class TuyaDeviceApi:
-    """API Wrapper für Tuya Wechselrichter."""
+    """API Wrapper für Tuya Wechselrichter mit Token-Caching."""
 
     def __init__(self, client_id: str, client_secret: str, device_id: str, api_endpoint: str):
         self.device_id = device_id
         self._openapi = TuyaOpenAPI(api_endpoint, client_id, client_secret)
         self._connected = False
         self.is_online = True
+        self._token_expiry = 0  # Millisekunden-Zeitstempel
 
     async def connect(self) -> bool:
-        """Verbindet zur Tuya Cloud API (async-safe)."""
+        """Verbindet zur Tuya Cloud API mit Token-Caching."""
+        now = int(time.time() * 1000)
+        if self._connected and now < self._token_expiry:
+            _LOGGER.debug("🔁 Bestehende Tuya-Verbindung wird wiederverwendet.")
+            return True
+
         try:
             await asyncio.to_thread(self._openapi.connect)
             self._connected = True
-            _LOGGER.info("✅ Verbindung zur Tuya Cloud erfolgreich hergestellt.")
+            self._token_expiry = now + 3500 * 1000  # konservative 58 Minuten statt 1h
+            _LOGGER.info("✅ Neue Verbindung zur Tuya Cloud erfolgreich aufgebaut.")
             return True
         except Exception as err:
             _LOGGER.error("❌ Fehler bei Tuya-API-Verbindung: %s", err)
+            self._connected = False
             return False
 
     async def get_status(self) -> dict[str, Any]:
         """Liefert Gerätestatus und prüft Online-Verfügbarkeit."""
+        await self.connect()
         await self._update_online_status()
 
         try:
@@ -60,6 +70,7 @@ class TuyaDeviceApi:
 
     async def send_command(self, code: str, value: Any) -> bool:
         """Sendet einen Steuerbefehl an das Gerät."""
+        await self.connect()
         if not self.is_online:
             _LOGGER.warning("⚠️ Gerät offline – Befehl nicht gesendet (%s = %s)", code, value)
             return False
@@ -90,7 +101,7 @@ class TuyaDeviceApi:
             _LOGGER.info("📶 Online-Status des Geräts: %s", "Online" if self.is_online else "Offline")
         except Exception as err:
             _LOGGER.warning("⚠️ Konnte Online-Status nicht ermitteln: %s", err)
-            self.is_online = True  # Fallback, um Blockierung zu vermeiden
+            self.is_online = True
 
 
 class DabbssonCoordinator(DataUpdateCoordinator):
