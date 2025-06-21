@@ -5,6 +5,7 @@ from datetime import timedelta
 from typing import Any
 
 from tuya_connector import TuyaOpenAPI
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -22,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class TuyaDeviceApi:
-    """API Wrapper für Tuya Wechselrichter mit optimiertem Token- & Statushandling."""
+    """API Wrapper für Tuya Wechselrichter mit Quota-Schutz."""
 
     def __init__(self, client_id: str, client_secret: str, device_id: str, api_endpoint: str):
         self.device_id = device_id
@@ -30,25 +31,34 @@ class TuyaDeviceApi:
         self._connected = False
         self.is_online = True
 
-        self._last_online_check = 0
-        self._online_check_interval = 1800  # alle 30 Minuten
+        self._quota_block_until = 0  # Sperrzeit bei Fehlern (z.B. Quota-Fehler)
 
     async def connect(self) -> bool:
-        """Initialer API-Connect. Kein reconnect bei jedem Aufruf."""
-        if not self._connected:
-            try:
-                await asyncio.to_thread(self._openapi.connect)
-                self._connected = True
-                _LOGGER.info("✅ Verbindung zur Tuya Cloud erfolgreich.")
-                return True
-            except Exception as err:
-                _LOGGER.error("❌ Fehler bei Tuya-API-Verbindung: %s", err)
-                return False
-        return True
+        """Verbindet zur Tuya Cloud API (async-safe)."""
+        try:
+            await asyncio.to_thread(self._openapi.connect)
+            self._connected = True
+            _LOGGER.info("✅ Verbindung zur Tuya Cloud erfolgreich hergestellt.")
+            return True
+        except Exception as err:
+            _LOGGER.error("❌ Fehler bei Tuya-API-Verbindung: %s", err)
+            return False
+
+    def _quota_block_active(self) -> bool:
+        return time.time() < self._quota_block_until
+
+    def _set_quota_block(self, minutes: int = 10):
+        self._quota_block_until = time.time() + minutes * 60
+        until = time.strftime("%H:%M:%S", time.localtime(self._quota_block_until))
+        _LOGGER.warning("⛔ API-Quota erreicht – blockiere API-Aufrufe bis %s", until)
 
     async def get_status(self) -> dict[str, Any]:
-        """Liefert Gerätestatus. Führt ggf. seltenen Online-Check durch."""
-        await self._maybe_update_online_status()
+        """Liefert Gerätestatus und prüft Online-Verfügbarkeit."""
+        if self._quota_block_active():
+            _LOGGER.warning("⛔ API-Aufruf übersprungen (Quota-Sperre aktiv)")
+            return {}
+
+        await self._update_online_status()
 
         try:
             response = await asyncio.to_thread(
@@ -58,15 +68,20 @@ class TuyaDeviceApi:
                 status = {item["code"]: item["value"] for item in response.get("result", [])}
                 _LOGGER.debug("📟 Gerätestatus erhalten: %s", status)
                 return status
-            raise Exception(f"Tuya Fehlerantwort: {response}")
+            self._set_quota_block()
+            raise Exception(f"Tuya antwortete mit Fehler: {response}")
         except Exception as err:
-            _LOGGER.error("❌ Fehler beim Statusabruf: %s", err)
+            _LOGGER.error("❌ Fehler beim Abrufen des Gerätestatus: %s", err)
+            self._set_quota_block()
             raise
 
     async def send_command(self, code: str, value: Any) -> bool:
-        """Sendet einen Steuerbefehl, wenn Gerät online."""
+        """Sendet einen Steuerbefehl an das Gerät."""
         if not self.is_online:
-            _LOGGER.warning("⚠️ Gerät offline – Befehl verworfen (%s = %s)", code, value)
+            _LOGGER.warning("⚠️ Gerät offline – Befehl nicht gesendet (%s = %s)", code, value)
+            return False
+        if self._quota_block_active():
+            _LOGGER.warning("⛔ Befehl %s nicht gesendet – API gesperrt", code)
             return False
 
         commands = {"commands": [{"code": code, "value": value}]}
@@ -78,16 +93,18 @@ class TuyaDeviceApi:
             if success:
                 _LOGGER.info("✅ Befehl gesendet: %s = %s", code, value)
             else:
-                _LOGGER.warning("❌ Befehl fehlgeschlagen (%s = %s): %s", code, value, response)
+                _LOGGER.warning("❌ Senden des Befehls %s = %s fehlgeschlagen: %s", code, value, response)
+                self._set_quota_block()
             return success
         except Exception as err:
-            _LOGGER.error("❌ Ausnahme beim Befehl (%s = %s): %s", code, value, err)
+            _LOGGER.error("❌ Ausnahme beim Senden des Befehls (%s = %s): %s", code, value, err)
+            self._set_quota_block()
             return False
 
-    async def _maybe_update_online_status(self):
-        """Führt Online-Check nur alle 30 Minuten durch."""
-        now = time.time()
-        if now - self._last_online_check < self._online_check_interval:
+    async def _update_online_status(self):
+        """Fragt den Online-Status des Geräts ab und aktualisiert ihn."""
+        if self._quota_block_active():
+            _LOGGER.debug("🕒 Online-Statusprüfung übersprungen (API-Sperre aktiv)")
             return
 
         try:
@@ -96,22 +113,22 @@ class TuyaDeviceApi:
             )
             result = response.get("result", [{}])[0]
             self.is_online = result.get("is_online", False)
-            self._last_online_check = now
-            _LOGGER.info("📶 Gerätestatus: %s", "Online" if self.is_online else "Offline")
+            _LOGGER.info("📶 Online-Status des Geräts: %s", "Online" if self.is_online else "Offline")
         except Exception as err:
-            _LOGGER.warning("⚠️ Online-Status nicht abrufbar: %s", err)
+            _LOGGER.warning("⚠️ Konnte Online-Status nicht ermitteln: %s", err)
+            self._set_quota_block()
             self.is_online = True  # Fallback
 
 
 class DabbssonCoordinator(DataUpdateCoordinator):
-    """Koordiniert periodischen Datenabruf vom Wechselrichter."""
+    """Koordiniert Updates für den Wechselrichter."""
 
     def __init__(self, hass: HomeAssistant, api: TuyaDeviceApi, name: str):
         super().__init__(
             hass,
             _LOGGER,
             name=name,
-            update_interval=timedelta(minutes=5),  # 🕒 Jetzt: nur alle 5 Minuten!
+            update_interval=timedelta(seconds=30),
         )
         self.api = api
 
