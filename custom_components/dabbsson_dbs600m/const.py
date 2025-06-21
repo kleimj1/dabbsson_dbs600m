@@ -18,4 +18,4 @@ DATA_COORDINATOR = "coordinator"
 DATA_DEVICE = "device"
 
 # Version
-INTEGRATION_VERSION = "2.1.6"
+INTEGRATION_VERSION = "2.1.7"
