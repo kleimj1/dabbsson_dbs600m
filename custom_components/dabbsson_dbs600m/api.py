@@ -82,7 +82,7 @@ class TuyaDeviceApi:
             )
             success = response.get("success", False)
             if success:
-                _LOGGER.info("✅ Befehl gesendet: %s = %s", code, value)
+                _LOGGER.debug("✅ Befehl gesendet: %s = %s", code, value)
             else:
                 _LOGGER.warning("❌ Senden des Befehls %s = %s fehlgeschlagen: %s", code, value, response)
             return success
@@ -98,7 +98,7 @@ class TuyaDeviceApi:
             )
             result = response.get("result", [{}])[0]
             self.is_online = result.get("is_online", False)
-            _LOGGER.info("📶 Online-Status des Geräts: %s", "Online" if self.is_online else "Offline")
+            _LOGGER.debug("📶 Online-Status des Geräts: %s", "Online" if self.is_online else "Offline")
         except Exception as err:
             _LOGGER.warning("⚠️ Konnte Online-Status nicht ermitteln: %s", err)
             self.is_online = True
@@ -112,7 +112,7 @@ class DabbssonCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name=name,
-            update_interval=timedelta(seconds=30),
+            update_interval=timedelta(minutes=5),  # statt 30 Sekunden
         )
         self.api = api
 
