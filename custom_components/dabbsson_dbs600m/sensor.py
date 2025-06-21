@@ -28,7 +28,7 @@ UNIT_MAP = {
     "%": PERCENTAGE,
     "s": UnitOfTime.SECONDS,
     "Kg": "kg",
-    "pcs": "pcs"
+    "pcs": "pcs",
 }
 
 
@@ -42,7 +42,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         if meta["type"] in ("value", "string") and not meta.get("writable", False):
             entities.append(DabbssonSensor(coordinator, dps_code, meta))
 
-    # Füge zusätzlichen Online-Status-Sensor hinzu
+    # Füge Online-Status als zusätzlichen Sensor hinzu
     entities.append(DabbssonOnlineStatus(coordinator, api))
 
     async_add_entities(entities)
@@ -55,7 +55,6 @@ class DabbssonSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._dps_code = dps_code
         self._meta = meta
-
         self._attr_name = meta["name"]
         self._attr_unique_id = f"{coordinator.api.device_id}_{dps_code}"
 
